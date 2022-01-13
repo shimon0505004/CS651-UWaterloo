@@ -61,15 +61,15 @@ public class PerfectX extends Configured implements Tool {
     public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
 
-		  IS_PREVIOUS_WORD_PERFECT.set(false);      
-      
+			IS_PREVIOUS_WORD_PERFECT.set(false);      
+	
       for (String word : Tokenizer.tokenize(value.toString())) {
-			  
-        if(IS_PREVIOUS_WORD_PERFECT.get()){
+				if(IS_PREVIOUS_WORD_PERFECT.get()){
         	WORD.set(word);
         	context.write(WORD, ONE);
 					
 					IS_PREVIOUS_WORD_PERFECT.set(false);
+
 				}
 
 				//Check if current word is "perfect", if so, turn on the flag to count the next word.
@@ -95,8 +95,12 @@ public class PerfectX extends Configured implements Tool {
       while (iter.hasNext()) {
         sum += iter.next().get();
       }
-      SUM.set(sum);
-      context.write(key, SUM);
+
+			// We only write the count if it is greater than 1, as we are not interested in x's that appear only once.
+			if(sum > 1){
+	      SUM.set(sum);
+  	    context.write(key, SUM);			
+			}
     }
   }
 
