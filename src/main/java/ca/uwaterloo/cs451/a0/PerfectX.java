@@ -22,6 +22,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.BooleanWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -43,23 +44,38 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * Simple word count demo with no optimization. See WordCount.java for combiner optimization.
+ * Simple modification to Word count. PerfecX. Counts distribution of all words that follow the word "perfect".
  */
 public class PerfectX extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(PerfectX.class);
 
-    // Mapper: emits (token, 1) for every word occurrence.
-    public static final class MyMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+  // Mapper: emits (token, 1) for every word occurrence.
+	public static final class MyMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
     // Reuse objects to save overhead of object creation.
     private static final IntWritable ONE = new IntWritable(1);
     private static final Text WORD = new Text();
+		private static final BooleanWritable IS_PREVIOUS_WORD_PERFECT = new BooleanWritable(false);
+		private static final String PRECEEDING_WORD = "perfect";
 
     @Override
     public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
+
+			IS_PREVIOUS_WORD_PERFECT.set(false);      
+	
       for (String word : Tokenizer.tokenize(value.toString())) {
-        WORD.set(word);
-        context.write(WORD, ONE);
+				if(IS_PREVIOUS_WORD_PERFECT.get()){
+        	WORD.set(word);
+        	context.write(WORD, ONE);
+					
+					IS_PREVIOUS_WORD_PERFECT.set(false);
+
+				}
+
+				//Check if current word is "perfect", if so, turn on the flag to count the next word.
+				if(word.compareTo(PRECEEDING_WORD)==0){
+					IS_PREVIOUS_WORD_PERFECT.set(true);
+				}
       }
     }
   }
