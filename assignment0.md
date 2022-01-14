@@ -27,22 +27,22 @@
 
 ### Question 5. In the sample Wikipedia collection, what are the 10 most frequent x's and how many times does each appear? (Answer this question with command-line tools.)
 
-game    369
-
-for     251
-
-day     187
-
-and     176
-
-score   151
-
-world   137
-
-record  133
-
-strangers       123
-
-the     116
-
-season  114
+> game    		369
+> 
+> for     		251
+> 
+> day     		187
+> 
+> and     		176
+> 
+> score   		151
+>
+> world   		137
+>
+> record  		133
+>
+> strangers		123
+>
+> the     		116
+>
+> season  		114
