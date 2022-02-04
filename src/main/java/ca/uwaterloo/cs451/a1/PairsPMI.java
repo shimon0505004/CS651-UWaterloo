@@ -195,7 +195,6 @@ public class PairsPMI extends Configured implements Tool {
     }
   }
 
-  private static final class SecondMapper extends Mapper<PairOfStrings, PairOfInts, PairOfStrings, IntWritable> {
 
 
   /**
