@@ -39,7 +39,7 @@ import org.kohsuke.args4j.ParserProperties;
 import tl.lin.data.pair.PairOfStrings;
 import tl.lin.data.pair.PairOfFloatInt;
 import tl.lin.data.pair.PairOfInts;
-import tl.lin.data.map.HMapKIW;
+import tl.lin.data.map.HMapKI;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -64,7 +64,7 @@ public class PairsPMI extends Configured implements Tool {
   private static final class FirstMapper extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
     private static final PairOfStrings PAIR = new PairOfStrings();
     private static final IntWritable ONE = new IntWritable(1);
-    private static final HMapKIW<PairOfStrings> DUPLICATECHECKERSET = new HMapKIW<PairOfStrings>();
+    private static final HMapKI<PairOfStrings> DUPLICATECHECKERSET = new HMapKI<PairOfStrings>();
 
     //private int window = 2;
 
@@ -82,48 +82,48 @@ public class PairsPMI extends Configured implements Tool {
       //Used for counting number of lines
       PAIR.set("*", "*");
       context.write(PAIR, ONE);                                           //So, (*,*) will contain the total number of lines and will be available at the beginning of sorted order
-      DUPLICATECHECKERSET.put(PAIR, ONE);     
+      DUPLICATECHECKERSET.put(PAIR, 1);     
 
       for (int i = 0; i < Math.min(tokens.size(), 40); i++) {
 
         PAIR.set(tokens.get(i), "*");  
-        if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+        if(!DUPLICATECHECKERSET.containsKey(PAIR)){
           context.write(PAIR, ONE);                                      
-          DUPLICATECHECKERSET.put(PAIR, ONE);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
+          DUPLICATECHECKERSET.put(PAIR, 1);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
         }
         
         PAIR.set("*", tokens.get(i));  
-        if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+        if(!DUPLICATECHECKERSET.containsKey(PAIR)){
           context.write(PAIR, ONE);                                      
-          DUPLICATECHECKERSET.put(PAIR, ONE);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
+          DUPLICATECHECKERSET.put(PAIR, 1);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
         }  
 
         for(int j = i+1; j < Math.min(tokens.size(), 40); j++)  {           // Ensure only the first 40 words in each line
 
           PAIR.set(tokens.get(j), "*");  
-          if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
             context.write(PAIR, ONE);                                   // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event B     
-            DUPLICATECHECKERSET.put(PAIR, ONE);
+            DUPLICATECHECKERSET.put(PAIR, 1);
           }
 
           PAIR.set("*", tokens.get(j));  
-          if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
             context.write(PAIR, ONE);                                      
-            DUPLICATECHECKERSET.put(PAIR, ONE);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
+            DUPLICATECHECKERSET.put(PAIR, 1);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
           }  
 
-          if (tokens.get(i).compareTo(tokens.get(j) == 0) continue;       // When Line is like A B C A B C, avoid counting co-occuring pairs like (A A)
+          if((tokens.get(i).compareTo(tokens.get(j))) == 0) continue;       // When Line is like A B C A B C, avoid counting co-occuring pairs like (A A)
 
           PAIR.set(tokens.get(i), tokens.get(j));
-          if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
             context.write(PAIR, ONE);                                    // When Line is like A B C A B C, Take co-occuring pair (A,B) only once  
-            DUPLICATECHECKERSET.put(PAIR, ONE);
+            DUPLICATECHECKERSET.put(PAIR, 1);
           }
 
           PAIR.set(tokens.get(j), tokens.get(i));
-          if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
             context.write(PAIR, ONE);                                    // When Line is like A B C A B C, Take co-occuring pair (B,A) only once  
-            DUPLICATECHECKERSET.put(PAIR, ONE);
+            DUPLICATECHECKERSET.put(PAIR, 1);
           }
         }
       }
@@ -181,7 +181,7 @@ public class PairsPMI extends Configured implements Tool {
           // For PMI(x,y), if count of x/y is less than threshold, then count of (x,y) will definitely be less than threshold.
           numerator = sum;
           RESULT.set(numerator, denominator);
-          PAIR.set(key.getRightElement(), key.getLeftElement())
+          PAIR.set(key.getRightElement(), key.getLeftElement());
           context.write(PAIR, RESULT);
         }
       }
