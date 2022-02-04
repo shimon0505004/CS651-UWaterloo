@@ -37,6 +37,8 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
 import tl.lin.data.pair.PairOfStrings;
+import tl.lin.data.pair.PairOfFloatInt;
+import tl.lin.data.pair.PairOfInts;
 import tl.lin.data.map.HMapKIW;
 
 import java.io.IOException;
@@ -77,14 +79,50 @@ public class PairsPMI extends Configured implements Tool {
       List<String> tokens = Tokenizer.tokenize(value.toString());
       DUPLICATECHECKERSET.clear();
 
+      //Used for counting number of lines
+      PAIR.set("*", "*");
+      context.write(PAIR, ONE);                                           //So, (*,*) will contain the total number of lines and will be available at the beginning of sorted order
+      DUPLICATECHECKERSET.put(PAIR, ONE);     
+
       for (int i = 0; i < Math.min(tokens.size(), 40); i++) {
-        for(int j = 0; j < Math.min(tokens.size(), 40); j++)  {           // Ensure only the first 40 words in each line
-          if (i == j) continue;
-          if (tokens.get(i).compareTo(tokens.get(j) == 0) continue;       // When Line is like A B C A B C, avoid pairs like A A
+
+        PAIR.set(tokens.get(i), "*");  
+        if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+          context.write(PAIR, ONE);                                      
+          DUPLICATECHECKERSET.put(PAIR, ONE);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
+        }
+        
+        PAIR.set("*", tokens.get(i));  
+        if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+          context.write(PAIR, ONE);                                      
+          DUPLICATECHECKERSET.put(PAIR, ONE);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
+        }  
+
+        for(int j = i+1; j < Math.min(tokens.size(), 40); j++)  {           // Ensure only the first 40 words in each line
+
+          PAIR.set(tokens.get(j), "*");  
+          if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+            context.write(PAIR, ONE);                                   // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event B     
+            DUPLICATECHECKERSET.put(PAIR, ONE);
+          }
+
+          PAIR.set("*", tokens.get(j));  
+          if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+            context.write(PAIR, ONE);                                      
+            DUPLICATECHECKERSET.put(PAIR, ONE);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
+          }  
+
+          if (tokens.get(i).compareTo(tokens.get(j) == 0) continue;       // When Line is like A B C A B C, avoid counting co-occuring pairs like (A A)
 
           PAIR.set(tokens.get(i), tokens.get(j));
           if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
             context.write(PAIR, ONE);                                    // When Line is like A B C A B C, Take co-occuring pair (A,B) only once  
+            DUPLICATECHECKERSET.put(PAIR, ONE);
+          }
+
+          PAIR.set(tokens.get(j), tokens.get(i));
+          if(!DUPLICATECHECKERSET.containsKey(PAIRS)){
+            context.write(PAIR, ONE);                                    // When Line is like A B C A B C, Take co-occuring pair (B,A) only once  
             DUPLICATECHECKERSET.put(PAIR, ONE);
           }
         }
@@ -114,8 +152,12 @@ public class PairsPMI extends Configured implements Tool {
   }
 
   private static final class FirstReducer extends
-      Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
-    private static final IntWritable SUM = new IntWritable();
+      Reducer<PairOfStrings, IntWritable, PairOfStrings, PairOfInts> {
+    private static final PairOfInts RESULT = new PairOfInts();
+    private static final PairOfStrings PAIR = new PairOfStrings();
+    private int denominator = 0;
+    private int numerator = 0;
+
     private int threshold = 1;
 
     @Override
@@ -132,11 +174,17 @@ public class PairsPMI extends Configured implements Tool {
         sum += iter.next().get();
       }
 
-      SUM.set(sum);
-
-      if(SUM > threshold)                       //To reduce the number of spurious pairs
-        context.write(key, SUM);  
-
+      if (key.getRightElement().equals("*")) {
+        denominator = sum;
+      } else {
+        if(sum > threshold){
+          // For PMI(x,y), if count of x/y is less than threshold, then count of (x,y) will definitely be less than threshold.
+          numerator = sum;
+          RESULT.set(numerator, denominator);
+          PAIR.set(key.getRightElement(), key.getLeftElement())
+          context.write(PAIR, RESULT);
+        }
+      }
     }
   }
 
@@ -146,6 +194,9 @@ public class PairsPMI extends Configured implements Tool {
       return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
     }
   }
+
+  private static final class SecondMapper extends Mapper<PairOfStrings, PairOfInts, PairOfStrings, IntWritable> {
+
 
   /**
    * Creates an instance of this tool.
@@ -188,34 +239,36 @@ public class PairsPMI extends Configured implements Tool {
     LOG.info(" - threshold : " + args.threshold);
     LOG.info(" - number of reducers: " + args.numReducers);
 
-    Job job = Job.getInstance(getConf());
-    job.setJobName(PairsPMI.class.getSimpleName());
-    job.setJarByClass(PairsPMI.class);
+    Job job1 = Job.getInstance(getConf());
+    job1.setJobName("Job1 - Count Lines, Words and Co-Occurance Pairs");
+    job1.setJarByClass(PairsPMI.class);
 
-    // Delete the output directory if it exists already.
-    Path outputDir = new Path(args.output);
-    FileSystem.get(getConf()).delete(outputDir, true);
+    
+    // Delete the Intermediate output directory if it exists already.
+    String tempOutput = args.output + "_temp";
+    Path tempOutputDir = new Path(tempOutput);
+    FileSystem.get(getConf()).delete(tempOutputDir, true);
 
-    job.getConfiguration().setInt("threshold", args.threshold);
+    job1.getConfiguration().setInt("threshold", args.threshold);
 
-    job.setNumReduceTasks(args.numReducers);
+    job1.setNumReduceTasks(args.numReducers);
 
-    FileInputFormat.setInputPaths(job, new Path(args.input));
-    FileOutputFormat.setOutputPath(job, new Path(args.output));
+    FileInputFormat.setInputPaths(job1, new Path(args.input));
+    FileOutputFormat.setOutputPath(job1, new Path(tempOutput));
 
-    job.setMapOutputKeyClass(PairOfStrings.class);
-    job.setMapOutputValueClass(IntWritable.class);
-    job.setOutputKeyClass(PairOfStrings.class);
-    job.setOutputValueClass(IntWritable.class);
+    job1.setMapOutputKeyClass(PairOfStrings.class);
+    job1.setMapOutputValueClass(IntWritable.class);
+    job1.setOutputKeyClass(PairOfStrings.class);
+    job1.setOutputValueClass(PairOfInts.class);
 
-    job.setMapperClass(FirstMapper.class);
-    job.setCombinerClass(FirstCombiner.class);
-    job.setReducerClass(FirstReducer.class);
-    job.setPartitionerClass(FirstPartitioner.class);
+    job1.setMapperClass(FirstMapper.class);
+    job1.setCombinerClass(FirstCombiner.class);
+    job1.setReducerClass(FirstReducer.class);
+    job1.setPartitionerClass(FirstPartitioner.class);
 
     long startTime = System.currentTimeMillis();
-    job.waitForCompletion(true);
-    System.out.println("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+    job1.waitForCompletion(true);
+    System.out.println("Job1 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
     return 0;
   }
