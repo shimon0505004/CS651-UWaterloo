@@ -29,6 +29,7 @@ import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -208,14 +209,14 @@ public class PairsPMI extends Configured implements Tool {
     public void map(Text key, Text value, Context context)
         throws IOException, InterruptedException {
       
-      List<String> keys = Tokenizer.tokenize(key.toString());
-      String leftKey = keys.get(0).substring(1,keys.get(0).length()-1);
-      String rightKey = keys.get(1).substring(0,keys.get(1).length()-1);
+      String[] keys = key.toString().substring(1,key.toString().length()-1).split(", ");
+      String leftKey = keys[0];
+      String rightKey = keys[1];
       KEYPAIR.set(leftKey, rightKey);
 
-      List<String> values = Tokenizer.tokenize(value.toString());
-      int leftVal = Integer.parseInt(keys.get(0).substring(1,keys.get(0).length()-1));
-      int rightVal = Integer.parseInt(keys.get(1).substring(0,keys.get(1).length()-1));
+      String[] values = value.toString().substring(1,value.toString().length()-1).split(", ");
+      int leftVal = Integer.parseInt(values[0]);
+      int rightVal = Integer.parseInt(values[1]);
       VALUEPAIR.set(leftVal,rightVal);
       context.write(KEYPAIR, VALUEPAIR);      
     }
@@ -246,7 +247,7 @@ public class PairsPMI extends Configured implements Tool {
   private static final class SecondReducer extends
     Reducer<PairOfStrings, PairOfInts, PairOfStrings, PairOfFloatInt> {
     private static final PairOfFloatInt RESULT = new PairOfFloatInt();
-    private static final PairOfStrings PAIR = new PairOfStrings();
+    private static final PairOfStrings KEYPAIR = new PairOfStrings();
     private float p_y = 0.0f;
 
     @Override
@@ -269,10 +270,11 @@ public class PairsPMI extends Configured implements Tool {
       if (key.getRightElement().equals("*")) {
         p_y = (numerator*(1.0f))/(denominator);
       } else {
-        p_y_by_x = (numerator*(1.0f))/(denominator);
-        pmi_x_y = (p_y_by_x / p_y);
+        float p_y_by_x = (numerator*(1.0f))/(denominator);
+        float pmi_x_y = (p_y_by_x / p_y);
         RESULT.set(pmi_x_y, numerator);
-        context.write(key, RESULT);
+        KEYPAIR.set(key.getRightElement(), key.getLeftElement());
+        context.write(KEYPAIR, RESULT);
       }
     }
   }
@@ -342,7 +344,7 @@ public class PairsPMI extends Configured implements Tool {
     FileOutputFormat.setOutputPath(job1, tempOutputDir);
 
     job1.setMapOutputKeyClass(PairOfStrings.class);
-    job1.setMapOutputValueClass(PairOfInts.class);
+    job1.setMapOutputValueClass(IntWritable.class);
     job1.setOutputKeyClass(PairOfStrings.class);
     job1.setOutputValueClass(PairOfInts.class);
 
@@ -372,7 +374,7 @@ public class PairsPMI extends Configured implements Tool {
 
       job2.setInputFormatClass(KeyValueTextInputFormat.class);
       job2.setMapOutputKeyClass(PairOfStrings.class);
-      job2.setMapOutputValueClass(PairOfFloatInt.class);
+      job2.setMapOutputValueClass(PairOfInts.class);
       job2.setOutputKeyClass(PairOfStrings.class);
       job2.setOutputValueClass(PairOfFloatInt.class);
 
@@ -381,8 +383,8 @@ public class PairsPMI extends Configured implements Tool {
       job2.setReducerClass(SecondReducer.class);
       job2.setPartitionerClass(SecondPartitioner.class);
 
-      long startTime = System.currentTimeMillis();
-      successAtJob2 = job2.waitForCompletion(true);
+      startTime = System.currentTimeMillis();
+      boolean successAtJob2 = job2.waitForCompletion(true);
       System.out.println("Job1 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
       if(successAtJob2){
@@ -390,7 +392,6 @@ public class PairsPMI extends Configured implements Tool {
         FileSystem.get(getConf()).delete(tempOutputDir, true);
       }
     }  
-
 
     return 0;
   }
