@@ -195,7 +195,94 @@ public class PairsPMI extends Configured implements Tool {
     }
   }
 
+  private static final class SecondMapper extends Mapper<Text, Text, PairOfStrings, PairOfInts> {
+    private static final PairOfStrings KEYPAIR = new PairOfStrings();
+    private static final PairOfInts VALUEPAIR = new PairOfInts();
 
+    @Override
+    public void setup(Context context) {
+
+    }
+
+    @Override
+    public void map(Text key, Text value, Context context)
+        throws IOException, InterruptedException {
+      
+      List<String> keys = Tokenizer.tokenize(key.toString());
+      String leftKey = keys.get(0).substring(1,keys.get(0).length()-1);
+      String rightKey = keys.get(1).substring(0,keys.get(1).length()-1);
+      KEYPAIR.set(leftKey, rightKey);
+
+      List<String> values = Tokenizer.tokenize(value.toString());
+      int leftVal = Integer.parseInt(keys.get(0).substring(1,keys.get(0).length()-1));
+      int rightVal = Integer.parseInt(keys.get(1).substring(0,keys.get(1).length()-1));
+      VALUEPAIR.set(leftVal,rightVal);
+      context.write(KEYPAIR, VALUEPAIR);      
+    }
+  }
+
+  private static final class SecondCombiner extends
+      Reducer<PairOfStrings, PairOfInts, PairOfStrings, PairOfInts> {
+    private static final IntWritable SUM = new IntWritable();
+    private static final PairOfInts RESULT = new PairOfInts();
+ 
+    @Override
+    public void reduce(PairOfStrings key, Iterable<PairOfInts> values, Context context)
+        throws IOException, InterruptedException {
+      Iterator<PairOfInts> iter = values.iterator();
+      int leftSum = 0;
+      int rightSum = 0;
+      while (iter.hasNext()) {
+        PairOfInts valuePair = iter.next();
+        leftSum += valuePair.getLeftElement();
+        rightSum +=  valuePair.getRightElement();
+      }
+
+      RESULT.set(leftSum, rightSum);
+      context.write(key, RESULT);
+    }
+  }  
+
+  private static final class SecondReducer extends
+    Reducer<PairOfStrings, PairOfInts, PairOfStrings, PairOfFloatInt> {
+    private static final PairOfFloatInt RESULT = new PairOfFloatInt();
+    private static final PairOfStrings PAIR = new PairOfStrings();
+    private float p_y = 0.0f;
+
+    @Override
+    public void setup(Context context) {
+    }
+
+    @Override
+    public void reduce(PairOfStrings key, Iterable<PairOfInts> values, Context context)
+        throws IOException, InterruptedException {
+      Iterator<PairOfInts> iter = values.iterator();
+      int numerator = 0;
+      int denominator = 0;
+      while (iter.hasNext()) {
+        PairOfInts valuePair = iter.next();
+        numerator += valuePair.getLeftElement();
+        denominator +=  valuePair.getRightElement();
+      }
+
+
+      if (key.getRightElement().equals("*")) {
+        p_y = (numerator*(1.0f))/(denominator);
+      } else {
+        p_y_by_x = (numerator*(1.0f))/(denominator);
+        pmi_x_y = (p_y_by_x / p_y);
+        RESULT.set(pmi_x_y, numerator);
+        context.write(key, RESULT);
+      }
+    }
+  }
+
+  private static final class SecondPartitioner extends Partitioner<PairOfStrings, PairOfInts> {
+    @Override
+    public int getPartition(PairOfStrings key, PairOfInts value, int numReduceTasks) {
+      return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+    }
+  }
 
   /**
    * Creates an instance of this tool.
@@ -249,14 +336,13 @@ public class PairsPMI extends Configured implements Tool {
     FileSystem.get(getConf()).delete(tempOutputDir, true);
 
     job1.getConfiguration().setInt("threshold", args.threshold);
-
     job1.setNumReduceTasks(args.numReducers);
 
     FileInputFormat.setInputPaths(job1, new Path(args.input));
-    FileOutputFormat.setOutputPath(job1, new Path(tempOutput));
+    FileOutputFormat.setOutputPath(job1, tempOutputDir);
 
     job1.setMapOutputKeyClass(PairOfStrings.class);
-    job1.setMapOutputValueClass(IntWritable.class);
+    job1.setMapOutputValueClass(PairOfInts.class);
     job1.setOutputKeyClass(PairOfStrings.class);
     job1.setOutputValueClass(PairOfInts.class);
 
@@ -266,8 +352,45 @@ public class PairsPMI extends Configured implements Tool {
     job1.setPartitionerClass(FirstPartitioner.class);
 
     long startTime = System.currentTimeMillis();
-    job1.waitForCompletion(true);
+    boolean successAtJob1 = job1.waitForCompletion(true);
     System.out.println("Job1 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+
+    if(successAtJob1){
+      Job job2 = Job.getInstance(getConf());
+      job2.setJobName("Job2 - Calculate PMI and Co-Occurance Pairs from Job1");
+      job2.setJarByClass(PairsPMI.class);
+
+      // Delete the output directory if it exists already.
+      Path outputDir = new Path(args.output);
+      FileSystem.get(getConf()).delete(outputDir, true);
+
+      job2.getConfiguration().setInt("threshold", args.threshold);
+      job2.setNumReduceTasks(args.numReducers);
+
+      FileInputFormat.setInputPaths(job2, tempOutputDir);
+      FileOutputFormat.setOutputPath(job2, outputDir);
+
+      job2.setInputFormatClass(KeyValueTextInputFormat.class);
+      job2.setMapOutputKeyClass(PairOfStrings.class);
+      job2.setMapOutputValueClass(PairOfFloatInt.class);
+      job2.setOutputKeyClass(PairOfStrings.class);
+      job2.setOutputValueClass(PairOfFloatInt.class);
+
+      job2.setMapperClass(SecondMapper.class);
+      job2.setCombinerClass(SecondCombiner.class);
+      job2.setReducerClass(SecondReducer.class);
+      job2.setPartitionerClass(SecondPartitioner.class);
+
+      long startTime = System.currentTimeMillis();
+      successAtJob2 = job2.waitForCompletion(true);
+      System.out.println("Job1 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+
+      if(successAtJob2){
+        //Delete temporary directory once job 2 is successfully completed.
+        FileSystem.get(getConf()).delete(tempOutputDir, true);
+      }
+    }  
+
 
     return 0;
   }
