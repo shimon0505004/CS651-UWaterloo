@@ -30,6 +30,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -271,7 +272,7 @@ public class PairsPMI extends Configured implements Tool {
         p_y = (numerator*(1.0f))/(denominator);
       } else {
         float p_y_by_x = (numerator*(1.0f))/(denominator);
-        float pmi_x_y = (p_y_by_x / p_y);
+        float pmi_x_y = (float)(java.lang.Math.log10(p_y_by_x / p_y));
         RESULT.set(pmi_x_y, numerator);
         KEYPAIR.set(key.getRightElement(), key.getLeftElement());
         context.write(KEYPAIR, RESULT);
@@ -353,6 +354,12 @@ public class PairsPMI extends Configured implements Tool {
     job1.setReducerClass(FirstReducer.class);
     job1.setPartitionerClass(FirstPartitioner.class);
 
+    job1.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
+    job1.getConfiguration().set("mapreduce.map.memory.mb", "3072");
+    job1.getConfiguration().set("mapreduce.map.java.opts", "-Xmx3072m");
+    job1.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
+    job1.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
+
     long startTime = System.currentTimeMillis();
     boolean successAtJob1 = job1.waitForCompletion(true);
     System.out.println("Job1 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
@@ -377,11 +384,18 @@ public class PairsPMI extends Configured implements Tool {
       job2.setMapOutputValueClass(PairOfInts.class);
       job2.setOutputKeyClass(PairOfStrings.class);
       job2.setOutputValueClass(PairOfFloatInt.class);
+      job2.setOutputFormatClass(TextOutputFormat.class);
 
       job2.setMapperClass(SecondMapper.class);
       job2.setCombinerClass(SecondCombiner.class);
       job2.setReducerClass(SecondReducer.class);
       job2.setPartitionerClass(SecondPartitioner.class);
+
+      job2.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
+      job2.getConfiguration().set("mapreduce.map.memory.mb", "3072");
+      job2.getConfiguration().set("mapreduce.map.java.opts", "-Xmx3072m");
+      job2.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
+      job2.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
 
       startTime = System.currentTimeMillis();
       boolean successAtJob2 = job2.waitForCompletion(true);
