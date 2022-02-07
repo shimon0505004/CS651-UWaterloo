@@ -250,7 +250,7 @@ public class StripesPMI extends Configured implements Tool {
           int c_X_Y = map.get(yKey);
 
           if(c_X_Y >= threshold){
-            float p_Y_bar_X = ((c_X_Y * 1.0)/c_X);
+            float p_Y_bar_X = ((c_X_Y * 1.0f)/c_X);
             float p_y = p_yMapper.get(yKey);
             float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
             CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
@@ -298,7 +298,7 @@ public class StripesPMI extends Configured implements Tool {
       return -1;
     }
 
-    LOG.info("Tool: " + ComputeCooccurrenceMatrixPairs.class.getSimpleName());
+    LOG.info("Tool: " + StripesPMI.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
     LOG.info(" - threshold: " + args.threshold);
@@ -314,7 +314,7 @@ public class StripesPMI extends Configured implements Tool {
     FileSystem.get(getConf()).delete(tempOutputDir, true);
     
 
-    job1.getConfiguration().setInt("threshold", args.window);
+    job1.getConfiguration().setInt("threshold", args.threshold);
     job1.getConfiguration().setInt("sidedata_dir", tempOutput);
 
     job1.setNumReduceTasks(args.numReducers);
@@ -373,7 +373,7 @@ public class StripesPMI extends Configured implements Tool {
       job2.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
       job2.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
 
-      long startTime = System.currentTimeMillis();
+      startTime = System.currentTimeMillis();
       boolean successAtJob2 = job2.waitForCompletion(true);
       System.out.println("Job2 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
