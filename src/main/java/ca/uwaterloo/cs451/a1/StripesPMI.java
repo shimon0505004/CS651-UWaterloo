@@ -322,7 +322,7 @@ public class StripesPMI extends Configured implements Tool {
     job1.setJarByClass(StripesPMI.class);
 
     // Delete the Intermediate output directory if it exists already.
-    String tempOutput = args.input+"_temp";
+    String tempOutput = args.output + "_temp";
     Path tempOutputDir = new Path(tempOutput);
     FileSystem.get(getConf()).delete(tempOutputDir, true);
     
