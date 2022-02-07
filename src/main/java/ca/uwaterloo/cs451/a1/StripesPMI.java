@@ -112,7 +112,13 @@ public class StripesPMI extends Configured implements Tool {
       // Reuse objects.
       private static final FloatWritable P_y = new FloatWritable(0.0f);
       private int lineCount = 0;
+      private int threshold = 1;
   
+      @Override
+      public void setup(Context context) {
+        threshold = context.getConfiguration().getInt("threshold", 1);
+      }
+
       @Override
       public void reduce(Text key, Iterable<IntWritable> values, Context context)
           throws IOException, InterruptedException {
@@ -126,8 +132,10 @@ public class StripesPMI extends Configured implements Tool {
         if(text.toString().equals("*")){
           lineCount = sum;
         }else{
-          P_y.set((sum*1.0f)/(lineCount));
-          context.write(key, P_y);
+          if(sum > threshold){
+            P_y.set((sum*1.0f)/(lineCount));
+            context.write(key, P_y);
+          }
         }
       }
     }
@@ -271,6 +279,7 @@ public class StripesPMI extends Configured implements Tool {
     
 
     job1.getConfiguration().setInt("threshold", args.window);
+    job1.getConfiguration().setInt("sidedata_dir", tempOutput);
 
     job1.setNumReduceTasks(args.numReducers);
 
@@ -286,6 +295,12 @@ public class StripesPMI extends Configured implements Tool {
     job1.setMapperClass(FirstMapper.class);
     job1.setCombinerClass(FirstCombiner.class);
     job1.setReducerClass(FirstReducer.class);
+
+    job1.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
+    job1.getConfiguration().set("mapreduce.map.memory.mb", "3072");
+    job1.getConfiguration().set("mapreduce.map.java.opts", "-Xmx3072m");
+    job1.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
+    job1.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
 
     long startTime = System.currentTimeMillis();
     boolean successAtJob1 = job1.waitForCompletion(true);
