@@ -28,6 +28,7 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Partitioner;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -65,95 +66,104 @@ import java.util.*;
 public class StripesPMI extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(StripesPMI.class);
 
-    // Mapper: emits (token, 1) for every unique word occurrence in every word.
-    public static final class FirstMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
-      // Reuse objects to save overhead of object creation.
-      private static final IntWritable ONE = new IntWritable(1);
-      private static final Text WORD = new Text();
-      private static final Set<String> wordSet = new HashSet();
-  
-      @Override
-      public void map(LongWritable key, Text value, Context context)
-          throws IOException, InterruptedException {
+  // Mapper: emits (token, 1) for every unique word occurrence in every word.
+  public static final class FirstMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+    // Reuse objects to save overhead of object creation.
+    private static final IntWritable ONE = new IntWritable(1);
+    private static final Text WORD = new Text();
+    private static final Set<String> wordSet = new HashSet();
 
-        wordSet.clear();
+    @Override
+    public void map(LongWritable key, Text value, Context context)
+        throws IOException, InterruptedException {
 
-        WORD.set("*");                  //For Counting lines
-        context.write(WORD, ONE);
+      wordSet.clear();
 
-        for (String word : Tokenizer.tokenize(value.toString())) {
-          if(!wordSet.contains(word)){
-            wordSet.add(word);
-            WORD.set(word);
-            context.write(WORD, ONE);
-          }
+      WORD.set("*");                  //For Counting lines
+      context.write(WORD, ONE);
 
-          if(wordSet.size() > 40)   //First 40 words in each line, words need to be unique.
-            break;
+      for (String word : Tokenizer.tokenize(value.toString())) {
+        if(!wordSet.contains(word)){
+          wordSet.add(word);
+          WORD.set(word);
+          context.write(WORD, ONE);
         }
+
+        if(wordSet.size() > 40)   //First 40 words in each line, words need to be unique.
+          break;
       }
     }
+  }
   
   
-    // Reducer: sums up all the counts.
-    public static final class FirstCombiner extends Reducer<Text, IntWritable, Text, IntWritable> {
-      // Reuse objects.
-      private static final IntWritable SUM = new IntWritable();
-  
-      @Override
-      public void reduce(Text key, Iterable<IntWritable> values, Context context)
-          throws IOException, InterruptedException {
-        // Sum up values.
-        Iterator<IntWritable> iter = values.iterator();
-        int sum = 0;
-        while (iter.hasNext()) {
-          sum += iter.next().get();
-        }
-        SUM.set(sum);
-        context.write(key, SUM);
+  // Reducer: sums up all the counts.
+  public static final class FirstCombiner extends Reducer<Text, IntWritable, Text, IntWritable> {
+    // Reuse objects.
+    private static final IntWritable SUM = new IntWritable();
+
+    @Override
+    public void reduce(Text key, Iterable<IntWritable> values, Context context)
+        throws IOException, InterruptedException {
+      // Sum up values.
+      Iterator<IntWritable> iter = values.iterator();
+      int sum = 0;
+      while (iter.hasNext()) {
+        sum += iter.next().get();
       }
+      SUM.set(sum);
+      context.write(key, SUM);
     }
+  }
 
     
-    // Reducer: Calculating marginal of P(y).
-    public static final class FirstReducer extends Reducer<Text, IntWritable, Text, FloatWritable> {
-      // Reuse objects.
-      private static final FloatWritable P_y = new FloatWritable(0.0f);
-      private int lineCount = 1;
-      private int threshold = 1;
-  
-      @Override
-      public void setup(Context context) {
-        threshold = context.getConfiguration().getInt("threshold", 1);
+  // Reducer: Calculating marginal of P(y).
+  public static final class FirstReducer extends Reducer<Text, IntWritable, Text, FloatWritable> {
+    // Reuse objects.
+    private static final FloatWritable P_y = new FloatWritable(0.0f);
+    private int lineCount = 1;
+    private int threshold = 1;
+
+    @Override
+    public void setup(Context context) {
+      threshold = context.getConfiguration().getInt("threshold", 1);
+    }
+
+    @Override
+    public void reduce(Text key, Iterable<IntWritable> values, Context context)
+        throws IOException, InterruptedException {
+      // Sum up values.
+      Iterator<IntWritable> iter = values.iterator();
+      int sum = 0;
+      while (iter.hasNext()) {
+        sum += iter.next().get();
       }
 
-      @Override
-      public void reduce(Text key, Iterable<IntWritable> values, Context context)
-          throws IOException, InterruptedException {
-        // Sum up values.
-        Iterator<IntWritable> iter = values.iterator();
-        int sum = 0;
-        while (iter.hasNext()) {
-          sum += iter.next().get();
-        }
-
-        if(key.toString().equals("*")){
-          lineCount = sum;
-        }else{
-          
-          /*
-          if(sum >= threshold){
-            P_y.set((sum*1.0f)/(lineCount));
-            context.write(key, P_y);
-          }
-          */
-
+      if(key.toString().equals("*")){
+        lineCount = sum;
+        P_y.set(lineCount*1.0f);
+        context.write(key, P_y);
+      }else{
+        
+        /*
+        if(sum >= threshold){
           P_y.set((sum*1.0f)/(lineCount));
           context.write(key, P_y);
         }
+        */
+
+        P_y.set((sum*1.0f)/(lineCount));
+        context.write(key, P_y);
       }
     }
+  }
 
+  private static final class FirstPartitioner extends Partitioner<Text, IntWritable> {
+    @Override
+    public int getPartition(Text key, IntWritable value, int numReduceTasks) {
+      return (key.toString().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+    }
+  }
+    
 
   private static final class SecondMapper extends Mapper<LongWritable, Text, Text, HMapStIW> {
     private static final HMapStIW MAP = new HMapStIW();
@@ -203,6 +213,12 @@ public class StripesPMI extends Configured implements Tool {
     }
   }
 
+  private static final class SecondPartitioner extends Partitioner<Text, HMapStIW> {
+    @Override
+    public int getPartition(Text key, HMapStIW value, int numReduceTasks) {
+      return (key.toString().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+    }
+  }
 
   private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {
 
@@ -348,6 +364,7 @@ public class StripesPMI extends Configured implements Tool {
     job1.setMapperClass(FirstMapper.class);
     job1.setCombinerClass(FirstCombiner.class);
     job1.setReducerClass(FirstReducer.class);
+    job1.setPartitionerClass(FirstPartitioner.class);
 
     job1.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
     job1.getConfiguration().set("mapreduce.map.memory.mb", "3072");
@@ -385,6 +402,7 @@ public class StripesPMI extends Configured implements Tool {
       job2.setMapperClass(SecondMapper.class);
       job2.setCombinerClass(SecondCombiner.class);
       job2.setReducerClass(SecondReducer.class);
+      job2.setPartitionerClass(SecondPartitioner.class);
 
       job2.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
       job2.getConfiguration().set("mapreduce.map.memory.mb", "3072");
