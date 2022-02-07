@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.HashSet;
+import java.util.Set;
 
 /**
  * <p>
@@ -132,7 +133,7 @@ public class StripesPMI extends Configured implements Tool {
         if(text.toString().equals("*")){
           lineCount = sum;
         }else{
-          if(sum > threshold){
+          if(sum >= threshold){
             P_y.set((sum*1.0f)/(lineCount));
             context.write(key, P_y);
           }
@@ -242,7 +243,7 @@ public class StripesPMI extends Configured implements Tool {
       for(String yKey: map.keySet()){
         if(yKey.compareTo(key.toString())!=0){
 
-          float c_X_Y = map.get(yKey);
+          int c_X_Y = map.get(yKey);
 
           if(c_X_Y >= threshold){
             float p_Y_bar_X = ((c_X_Y * 1.0)/c_X);
