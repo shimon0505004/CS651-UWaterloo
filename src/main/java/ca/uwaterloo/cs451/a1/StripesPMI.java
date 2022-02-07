@@ -116,7 +116,7 @@ public class StripesPMI extends Configured implements Tool {
     public static final class FirstReducer extends Reducer<Text, IntWritable, Text, FloatWritable> {
       // Reuse objects.
       private static final FloatWritable P_y = new FloatWritable(0.0f);
-      private int lineCount = 0;
+      private int lineCount = 1;
       private int threshold = 1;
   
       @Override
@@ -137,10 +137,16 @@ public class StripesPMI extends Configured implements Tool {
         if(key.toString().equals("*")){
           lineCount = sum;
         }else{
+          
+          /*
           if(sum >= threshold){
             P_y.set((sum*1.0f)/(lineCount));
             context.write(key, P_y);
           }
+          */
+
+          P_y.set((sum*1.0f)/(lineCount));
+          context.write(key, P_y);
         }
       }
     }
@@ -205,7 +211,7 @@ public class StripesPMI extends Configured implements Tool {
     @Override
     public void setup(Context context) throws IOException{
       threshold = context.getConfiguration().getInt("threshold", 1);
-      String sidedata_dir_path = context.getConfiguration().get("sidedata_dir");
+      String sidedata_dir_path = context.getConfiguration().get("sidedata_dir", "_temp_StripesPMI");
       Path sidedata_dir = new Path(sidedata_dir_path);
 
       FileSystem fs = FileSystem.get(context.getConfiguration());
@@ -222,10 +228,10 @@ public class StripesPMI extends Configured implements Tool {
         BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(file.getPath()) , "UTF-8"));
         String line = null;
         while((line = reader.readLine()) != null) {
-          List<String> words = Tokenizer.tokenize(line);
-          if(words.size() == 2){
-            String yKey = words.get(0);
-            float p_y = Float.parseFloat(words.get(1));
+          String[] words = line.split("\\s+");
+          if(words.length == 2){
+            String yKey = words[0];
+            float p_y = Float.parseFloat(words[1]);
             p_yMapper.put(yKey, p_y);
           }
         }
@@ -243,25 +249,31 @@ public class StripesPMI extends Configured implements Tool {
         map.plus(iter.next());
       }
 
-      float c_X = map.get(key.toString());
       OUTPUT_MAP_VALUE.clear();
-      for(String yKey: map.keySet()){
-        if(yKey.compareTo(key.toString())!=0){
 
-          int c_X_Y = map.get(yKey);
-
-          if(c_X_Y >= threshold){
-            float p_Y_bar_X = ((c_X_Y * 1.0f)/c_X);
-            float p_y = p_yMapper.get(yKey);
-            float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
-            CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
-            OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);  
+      int c_X = map.get(key.toString());
+      
+      if(c_X >= threshold){
+        for(String yKey: map.keySet()){
+          if(yKey.compareTo(key.toString())!=0){
+  
+            int c_X_Y = map.get(yKey);
+  
+            if(c_X_Y >= threshold){
+              float p_Y_bar_X = ((c_X_Y * 1.0f)/c_X);
+              float p_y = p_yMapper.get(yKey);
+              float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
+              CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
+              OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);  
+            }
+  
           }
-
-        }
+        }  
+        
+        if(OUTPUT_MAP_VALUE.size() > 0)
+          context.write(key, OUTPUT_MAP_VALUE);
       }
 
-      context.write(key, OUTPUT_MAP_VALUE);
     }
   }
 
@@ -310,7 +322,7 @@ public class StripesPMI extends Configured implements Tool {
     job1.setJarByClass(StripesPMI.class);
 
     // Delete the Intermediate output directory if it exists already.
-    String tempOutput = args.output + "_temp";
+    String tempOutput = args.input+"_temp";
     Path tempOutputDir = new Path(tempOutput);
     FileSystem.get(getConf()).delete(tempOutputDir, true);
     
@@ -328,6 +340,7 @@ public class StripesPMI extends Configured implements Tool {
     job1.setMapOutputValueClass(IntWritable.class);
     job1.setOutputKeyClass(Text.class);
     job1.setOutputValueClass(HMapStIW.class);
+    job1.setOutputFormatClass(TextOutputFormat.class);
 
     job1.setMapperClass(FirstMapper.class);
     job1.setCombinerClass(FirstCombiner.class);
@@ -353,6 +366,8 @@ public class StripesPMI extends Configured implements Tool {
       FileSystem.get(getConf()).delete(outputDir, true);
 
       job2.getConfiguration().setInt("threshold", args.threshold);
+      job2.getConfiguration().set("sidedata_dir", tempOutput);
+  
       job2.setNumReduceTasks(args.numReducers);
 
       FileInputFormat.setInputPaths(job2, new Path(args.input));
