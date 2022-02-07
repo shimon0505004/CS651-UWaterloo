@@ -200,7 +200,31 @@ public class StripesPMI extends Configured implements Tool {
     @Override
     public void setup(Context context) {
       threshold = context.getConfiguration().getInt("threshold", 1);
+      String sidedata_dir = context.getConfiguration().get("sidedata_dir");
 
+      FileSystem fs = FileSystem.get(context.getConfiguration());
+      PathFilter filter = new PathFilter() {
+
+        @Override
+        public boolean accept(Path path) {
+            return path.getName().startsWith("part-r-");
+        }
+      };
+
+      FileStatus[] fileStatuses = fs.listStatus(sidedata_dir, filter);
+      for(FileStatus file: fileStatuses){
+        BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(file)));
+        String line = null;
+        while((line = reader.readLine()) != null) {
+          String[] words = Tokenizer.tokenize(line);
+          if(words.length == 2){
+            String yKey = words[0];
+            float p_y = Float.parseFloat(words[1]);
+            p_yMapper.put(yKey, p_y);
+          }
+        }
+        reader.close();
+      }
     }
 
     @Override
