@@ -20,6 +20,8 @@ import io.bespin.java.util.Tokenizer;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.io.IntWritable; 
 import org.apache.hadoop.io.FloatWritable; 
 import org.apache.hadoop.io.LongWritable;
@@ -43,6 +45,8 @@ import tl.lin.data.pair.PairOfFloatInt;
 
 
 import java.io.IOException;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.*;
 
 /**
@@ -130,7 +134,7 @@ public class StripesPMI extends Configured implements Tool {
           sum += iter.next().get();
         }
 
-        if(text.toString().equals("*")){
+        if(key.toString().equals("*")){
           lineCount = sum;
         }else{
           if(sum >= threshold){
@@ -142,7 +146,7 @@ public class StripesPMI extends Configured implements Tool {
     }
 
 
-  private static final class SecondMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+  private static final class SecondMapper extends Mapper<LongWritable, Text, Text, HMapStIW> {
     private static final HMapStIW MAP = new HMapStIW();
     private static final Text KEY = new Text();
     
@@ -194,7 +198,7 @@ public class StripesPMI extends Configured implements Tool {
   private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {
 
     private static final PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt();
-    private static final HashMapWritable<String, PairOfFloatInt> OUTPUT_MAP_VALUE = new HashMapWritable();
+    private static final HashMapWritable OUTPUT_MAP_VALUE = new HashMapWritable();
     private Map<String, Float> p_yMapper = new HashMap<>();
     private int threshold = 1;
 
@@ -214,7 +218,7 @@ public class StripesPMI extends Configured implements Tool {
 
       FileStatus[] fileStatuses = fs.listStatus(sidedata_dir, filter);
       for(FileStatus file: fileStatuses){
-        BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(file)));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(file.getPath()) , "UTF-8"));
         String line = null;
         while((line = reader.readLine()) != null) {
           String[] words = Tokenizer.tokenize(line);
@@ -354,7 +358,7 @@ public class StripesPMI extends Configured implements Tool {
       FileOutputFormat.setOutputPath(job2, new Path(args.output));
   
       job2.setMapOutputKeyClass(Text.class);
-      job2.setMapOutputValueClass(IntWritable.class);
+      job2.setMapOutputValueClass(HMapStIW.class);
       job2.setOutputKeyClass(Text.class);
       job2.setOutputValueClass(HashMapWritable.class);
       job2.setOutputFormatClass(TextOutputFormat.class);
