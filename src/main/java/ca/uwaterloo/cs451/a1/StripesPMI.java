@@ -43,10 +43,7 @@ import tl.lin.data.pair.PairOfFloatInt;
 
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 /**
  * <p>
@@ -81,7 +78,7 @@ public class StripesPMI extends Configured implements Tool {
         context.write(WORD, ONE);
 
         for (String word : Tokenizer.tokenize(value.toString())) {
-          if(!wordSet.containsKey(word)){
+          if(!wordSet.contains(word)){
             wordSet.add(word);
             WORD.set(word);
             context.write(WORD, ONE);
@@ -198,7 +195,7 @@ public class StripesPMI extends Configured implements Tool {
 
     private static final PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt();
     private static final HashMapWritable<String, PairOfFloatInt> OUTPUT_MAP_VALUE = new HashMapWritable();
-    private Map<String, float> p_yMapper = new HashMap<>();
+    private Map<String, Float> p_yMapper = new HashMap<>();
     private int threshold = 1;
 
     @Override
