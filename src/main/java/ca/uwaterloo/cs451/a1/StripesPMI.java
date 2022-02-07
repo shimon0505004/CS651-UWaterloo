@@ -315,7 +315,7 @@ public class StripesPMI extends Configured implements Tool {
     
 
     job1.getConfiguration().setInt("threshold", args.threshold);
-    job1.getConfiguration().setInt("sidedata_dir", tempOutput);
+    job1.getConfiguration().set("sidedata_dir", tempOutput);
 
     job1.setNumReduceTasks(args.numReducers);
 
