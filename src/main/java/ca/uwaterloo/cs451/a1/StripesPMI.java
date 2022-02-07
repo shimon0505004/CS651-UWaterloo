@@ -66,12 +66,17 @@ import java.util.*;
 public class StripesPMI extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(StripesPMI.class);
 
+  private static enum Job1LineCounter{
+    LINE_COUNTER
+  };
+
   // Mapper: emits (token, 1) for every unique word occurrence in every word.
   public static final class FirstMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
     // Reuse objects to save overhead of object creation.
     private static final IntWritable ONE = new IntWritable(1);
     private static final Text WORD = new Text();
     private static final Set<String> wordSet = new HashSet();
+    
 
     @Override
     public void map(LongWritable key, Text value, Context context)
@@ -92,6 +97,8 @@ public class StripesPMI extends Configured implements Tool {
         if(wordSet.size() > 40)   //First 40 words in each line, words need to be unique.
           break;
       }
+
+      context.getcounter(Job1LineCounter.LINE_COUNTER).increment(1L);
     }
   }
   
@@ -126,6 +133,7 @@ public class StripesPMI extends Configured implements Tool {
     @Override
     public void setup(Context context) {
       threshold = context.getConfiguration().getInt("threshold", 1);
+      lineCount = context.getcounter(Job1LineCounter.LINE_COUNTER);
     }
 
     @Override
@@ -138,22 +146,27 @@ public class StripesPMI extends Configured implements Tool {
         sum += iter.next().get();
       }
 
+      /*
       if(key.toString().equals("*")){
         lineCount = sum;
         P_y.set(lineCount*1.0f);
         context.write(key, P_y);
       }else{
         
-        /*
+        
         if(sum >= threshold){
           P_y.set((sum*1.0f)/(lineCount));
           context.write(key, P_y);
         }
-        */
+        
 
         P_y.set((sum*1.0f)/(lineCount));
         context.write(key, P_y);
       }
+      */
+
+      P_y.set((sum*1.0f)/(lineCount));
+      context.write(key, P_y);
     }
   }
 
