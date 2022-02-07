@@ -20,6 +20,7 @@ import io.bespin.java.util.Tokenizer;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable; 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -39,6 +40,7 @@ import tl.lin.data.map.HMapStIW;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
+import java.util.HashSet;
 
 /**
  * <p>
