@@ -87,6 +87,9 @@ public class StripesPMI extends Configured implements Tool {
             WORD.set(word);
             context.write(WORD, ONE);
           }
+
+          if(wordSet.size() > 40)   //First 40 words in each line, words need to be unique.
+            break;
         }
       }
     }
