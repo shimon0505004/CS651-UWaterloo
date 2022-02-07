@@ -203,9 +203,10 @@ public class StripesPMI extends Configured implements Tool {
     private int threshold = 1;
 
     @Override
-    public void setup(Context context) {
+    public void setup(Context context) throws IOException{
       threshold = context.getConfiguration().getInt("threshold", 1);
-      String sidedata_dir = context.getConfiguration().get("sidedata_dir");
+      String sidedata_dir_path = context.getConfiguration().get("sidedata_dir");
+      Path sidedata_dir = new Path(sidedata_dir_path);
 
       FileSystem fs = FileSystem.get(context.getConfiguration());
       PathFilter filter = new PathFilter() {
@@ -221,10 +222,10 @@ public class StripesPMI extends Configured implements Tool {
         BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(file.getPath()) , "UTF-8"));
         String line = null;
         while((line = reader.readLine()) != null) {
-          String[] words = Tokenizer.tokenize(line);
-          if(words.length == 2){
-            String yKey = words[0];
-            float p_y = Float.parseFloat(words[1]);
+          List<String> words = Tokenizer.tokenize(line);
+          if(words.size() == 2){
+            String yKey = words.get(0);
+            float p_y = Float.parseFloat(words.get(1));
             p_yMapper.put(yKey, p_y);
           }
         }
