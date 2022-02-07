@@ -38,6 +38,9 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
 import tl.lin.data.map.HMapStIW;
+import tl.lin.data.map.HashMapWritable;
+import tl.lin.data.pair.PairOfFloatInt;
+
 
 import java.io.IOException;
 import java.util.Iterator;
