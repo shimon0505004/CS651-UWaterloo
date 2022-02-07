@@ -144,7 +144,7 @@ public class StripesPMI extends Configured implements Tool {
   private static final class SecondMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
     private static final HMapStIW MAP = new HMapStIW();
     private static final Text KEY = new Text();
-
+    
 
     @Override
     public void setup(Context context) {
@@ -190,15 +190,17 @@ public class StripesPMI extends Configured implements Tool {
   }
 
 
-  private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HMapStIW> {
+  private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {
 
     private static final PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt();
     private static final HashMapWritable<String, PairOfFloatInt> OUTPUT_MAP_VALUE = new HashMapWritable();
     private Map<String, float> p_yMapper = new HashMap<>();
+    private int threshold = 1;
 
     @Override
     public void setup(Context context) {
-      //Load side data P(y), 
+      threshold = context.getConfiguration().getInt("threshold", 1);
+
     }
 
     @Override
@@ -215,12 +217,17 @@ public class StripesPMI extends Configured implements Tool {
       OUTPUT_MAP_VALUE.clear();
       for(String yKey: map.keySet()){
         if(yKey.compareTo(key.toString())!=0){
+
           float c_X_Y = map.get(yKey);
-          float p_Y_bar_X = ((c_X_Y * 1.0)/c_X);
-          float p_y = p_yMapper.get(yKey);
-          float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
-          CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
-          OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
+
+          if(c_X_Y >= threshold){
+            float p_Y_bar_X = ((c_X_Y * 1.0)/c_X);
+            float p_y = p_yMapper.get(yKey);
+            float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
+            CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
+            OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);  
+          }
+
         }
       }
 
@@ -304,7 +311,50 @@ public class StripesPMI extends Configured implements Tool {
 
     long startTime = System.currentTimeMillis();
     boolean successAtJob1 = job1.waitForCompletion(true);
-    System.out.println("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+    System.out.println("Job2 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+
+    if(successAtJob1){
+      Job job2 = Job.getInstance(getConf());
+      job2.setJobName(StripesPMI.class.getSimpleName() + " Job2 : Calculate PMI(x,y) = p(y|x)/p(y)");
+      job2.setJarByClass(StripesPMI.class);
+
+      // Delete the output directory if it exists already.
+      Path outputDir = new Path(args.output);
+      FileSystem.get(getConf()).delete(outputDir, true);
+
+      job2.getConfiguration().setInt("threshold", args.threshold);
+      job2.setNumReduceTasks(args.numReducers);
+
+      FileInputFormat.setInputPaths(job2, new Path(args.input));
+      FileOutputFormat.setOutputPath(job2, new Path(args.output));
+  
+      job2.setMapOutputKeyClass(Text.class);
+      job2.setMapOutputValueClass(IntWritable.class);
+      job2.setOutputKeyClass(Text.class);
+      job2.setOutputValueClass(HashMapWritable.class);
+      job2.setOutputFormatClass(TextOutputFormat.class);
+
+      job2.setMapperClass(SecondMapper.class);
+      job2.setCombinerClass(SecondCombiner.class);
+      job2.setReducerClass(SecondReducer.class);
+
+      job2.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
+      job2.getConfiguration().set("mapreduce.map.memory.mb", "3072");
+      job2.getConfiguration().set("mapreduce.map.java.opts", "-Xmx3072m");
+      job2.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
+      job2.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
+
+      long startTime = System.currentTimeMillis();
+      boolean successAtJob2 = job2.waitForCompletion(true);
+      System.out.println("Job2 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
+
+      if(successAtJob2){
+        //Delete temporary directory once job 2 is successfully completed.
+        FileSystem.get(getConf()).delete(tempOutputDir, true);
+      }
+
+
+    }
 
     return 0;
   }
