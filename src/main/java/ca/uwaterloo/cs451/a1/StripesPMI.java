@@ -21,6 +21,7 @@ import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable; 
+import org.apache.hadoop.io.FloatWritable; 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
@@ -28,6 +29,7 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
@@ -255,35 +257,38 @@ public class StripesPMI extends Configured implements Tool {
     LOG.info("Tool: " + ComputeCooccurrenceMatrixPairs.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
-    LOG.info(" - window: " + args.window);
+    LOG.info(" - threshold: " + args.threshold);
     LOG.info(" - number of reducers: " + args.numReducers);
 
-    Job job = Job.getInstance(getConf());
-    job.setJobName(StripesPMI.class.getSimpleName());
-    job.setJarByClass(StripesPMI.class);
+    Job job1 = Job.getInstance(getConf());
+    job1.setJobName(StripesPMI.class.getSimpleName() + " Job1 : Calculate p(y) = c(y)/number of lines.");
+    job1.setJarByClass(StripesPMI.class);
 
-    // Delete the output directory if it exists already.
-    Path outputDir = new Path(args.output);
-    FileSystem.get(getConf()).delete(outputDir, true);
+    // Delete the Intermediate output directory if it exists already.
+    String tempOutput = args.output + "_temp";
+    Path tempOutputDir = new Path(tempOutput);
+    FileSystem.get(getConf()).delete(tempOutputDir, true);
+    
 
-    job.getConfiguration().setInt("window", args.window);
+    job1.getConfiguration().setInt("threshold", args.window);
 
-    job.setNumReduceTasks(args.numReducers);
+    job1.setNumReduceTasks(args.numReducers);
 
-    FileInputFormat.setInputPaths(job, new Path(args.input));
-    FileOutputFormat.setOutputPath(job, new Path(args.output));
+    FileInputFormat.setInputPaths(job1, new Path(args.input));
+    FileOutputFormat.setOutputPath(job1, new Path(tempOutputDir));
 
-    job.setMapOutputKeyClass(Text.class);
-    job.setMapOutputValueClass(HMapStIW.class);
-    job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(HMapStIW.class);
 
-    job.setMapperClass(SecondMapper.class);
-    job.setCombinerClass(SecondCombiner.class);
-    job.setReducerClass(SecondReducer.class);
+    job1.setMapOutputKeyClass(Text.class);
+    job1.setMapOutputValueClass(HMapStIW.class);
+    job1.setOutputKeyClass(Text.class);
+    job1.setOutputValueClass(HMapStIW.class);
+
+    job1.setMapperClass(FirstMapper.class);
+    job1.setCombinerClass(FirstCombiner.class);
+    job1.setReducerClass(FirstReducer.class);
 
     long startTime = System.currentTimeMillis();
-    job.waitForCompletion(true);
+    boolean successAtJob1 = job1.waitForCompletion(true);
     System.out.println("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
     return 0;
