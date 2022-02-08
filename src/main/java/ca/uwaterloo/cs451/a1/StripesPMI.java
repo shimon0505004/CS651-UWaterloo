@@ -197,13 +197,6 @@ public class StripesPMI extends Configured implements Tool {
     }
   }
 
-  private static final class SecondPartitioner extends Partitioner<Text, HMapStIW> {
-    @Override
-    public int getPartition(Text key, HMapStIW value, int numReduceTasks) {
-      return (key.toString().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
-    }
-  }
-
   private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {
 
     private static final PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt();
@@ -215,7 +208,7 @@ public class StripesPMI extends Configured implements Tool {
     @Override
     public void setup(Context context) throws IOException{
       threshold = context.getConfiguration().getInt("threshold", 1);
-      number_of_lines = context.getConfiguration().getInt("numberOfLines", 1L);
+      number_of_lines = context.getConfiguration().getLong("numberOfLines", 1L);
 
       String sidedata_dir_path = context.getConfiguration().get("sidedata_dir", "_temp_StripesPMI");
       Path sidedata_dir = new Path(sidedata_dir_path);
@@ -377,7 +370,7 @@ public class StripesPMI extends Configured implements Tool {
 
       job2.getConfiguration().setInt("threshold", args.threshold);
       job2.getConfiguration().set("sidedata_dir", tempOutput);
-      job2.getConfiguration().set("numberOfLines", lineCounter);
+      job2.getConfiguration().setLong("numberOfLines", lineCounter);
   
       job2.setNumReduceTasks(args.numReducers);
 
@@ -393,7 +386,6 @@ public class StripesPMI extends Configured implements Tool {
       job2.setMapperClass(SecondMapper.class);
       job2.setCombinerClass(SecondCombiner.class);
       job2.setReducerClass(SecondReducer.class);
-      job2.setPartitionerClass(SecondPartitioner.class);
 
       job2.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
       job2.getConfiguration().set("mapreduce.map.memory.mb", "3072");
