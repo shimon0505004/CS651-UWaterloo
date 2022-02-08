@@ -164,21 +164,28 @@ public class StripesPMI extends Configured implements Tool {
         throws IOException, InterruptedException {
       List<String> tokens = Tokenizer.tokenize(value.toString());
 
-      for (int i = 0; i < Math.min(tokens.size(), 40); i++) {
+      for (int i = 0; i < tokens.size(); i++) {
         MAP.clear();
         MAP.increment(tokens.get(i));                 //Used for keeping count of individual words A as (A,A)  
-        for (int j = 0; j < Math.min(tokens.size(), 40); j++) {
+
+        for (int j = 0; j < tokens.size(); j++) {
           if (i == j) continue;
           
           if((tokens.get(i).compareTo(tokens.get(j))) == 0) continue;   // Skip cases like (A,A)
           
           if(!MAP.containsKey(tokens.get(j)))         //Take pairs like (A,B) only once. Say line is A, B, C, B. This will ensure if (B,1) is already in, then no more entries are made.
             MAP.increment(tokens.get(j));
+
+          if(MAP.size() >= 40)      //If map has 39 elements, that means including key there are 40 unique words.
+            break;
         }
 
         KEY.set(tokens.get(i));
         context.write(KEY, MAP);
       }
+
+
+
     }
   }
 
