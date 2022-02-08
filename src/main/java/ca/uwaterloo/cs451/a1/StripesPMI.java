@@ -26,6 +26,7 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.FloatWritable; 
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Partitioner;
@@ -78,6 +79,7 @@ public class StripesPMI extends Configured implements Tool {
     private static final Set<String> wordSet = new HashSet();
     
 
+
     @Override
     public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
@@ -98,7 +100,7 @@ public class StripesPMI extends Configured implements Tool {
           break;
       }
 
-      context.getcounter(Job1LineCounter.LINE_COUNTER).increment(1L);
+      context.getCounter(Job1LineCounter.LINE_COUNTER).increment(1L);
     }
   }
   
@@ -127,13 +129,13 @@ public class StripesPMI extends Configured implements Tool {
   public static final class FirstReducer extends Reducer<Text, IntWritable, Text, FloatWritable> {
     // Reuse objects.
     private static final FloatWritable P_y = new FloatWritable(0.0f);
-    private int lineCount = 1;
+    private long lineCount = 1;
     private int threshold = 1;
 
     @Override
     public void setup(Context context) {
       threshold = context.getConfiguration().getInt("threshold", 1);
-      lineCount = context.getcounter(Job1LineCounter.LINE_COUNTER);
+      lineCount = context.getCounters().findCounter(Job1LineCounter.LINE_COUNTER).getValue();
     }
 
     @Override
@@ -165,7 +167,7 @@ public class StripesPMI extends Configured implements Tool {
       }
       */
 
-      P_y.set((sum*1.0f)/(lineCount));
+      P_y.set((float)(sum*1.0f/lineCount));
       context.write(key, P_y);
     }
   }
