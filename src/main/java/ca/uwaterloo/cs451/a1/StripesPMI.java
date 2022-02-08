@@ -354,7 +354,7 @@ public class StripesPMI extends Configured implements Tool {
     job1.setMapperClass(FirstMapper.class);
     job1.setCombinerClass(FirstCombiner.class);
     job1.setReducerClass(FirstReducer.class);
-    job1.setPartitionerClass(FirstPartitioner.class);
+
 
     job1.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
     job1.getConfiguration().set("mapreduce.map.memory.mb", "3072");
