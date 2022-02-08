@@ -86,7 +86,19 @@ public class PairsPMI extends Configured implements Tool {
       context.write(PAIR, ONE);                                           //So, (*,*) will contain the total number of lines and will be available at the beginning of sorted order
       DUPLICATECHECKERSET.put(PAIR, 1);     
 
-      for (int i = 0; i < Math.min(tokens.size(), 40); i++) {
+      int lastIndex = tokens.size() - 1;
+      Set<String> uniqueWords = new HashSet<>();    
+      for(int i=0; i< tokens.size(); i++){
+        if(!uniqueWords.contains(tokens.get(i))){
+          uniqueWords.add(tokens.get(i));
+
+          if(uniqueWords.size() >= 40){
+            lastIndex = i;
+          }
+        }
+      }    
+
+      for (int i = 0; i <= lastIndex; i++) {
 
         PAIR.set(tokens.get(i), "*");  
         if(!DUPLICATECHECKERSET.containsKey(PAIR)){
@@ -100,7 +112,7 @@ public class PairsPMI extends Configured implements Tool {
           DUPLICATECHECKERSET.put(PAIR, 1);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
         }  
 
-        for(int j = i+1; j < Math.min(tokens.size(), 40); j++)  {           // Ensure only the first 40 words in each line
+        for(int j = i+1; j <= lastIndex; j++)  {           // Ensure only the first 40 words in each line
 
           PAIR.set(tokens.get(j), "*");  
           if(!DUPLICATECHECKERSET.containsKey(PAIR)){
