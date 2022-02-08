@@ -143,10 +143,8 @@ public class StripesPMI extends Configured implements Tool {
         sum += iter.next().get();
       }
 
-      if(sum >= threshold){
-        WORD_COUNT.set(sum);
-        context.write(key, WORD_COUNT);
-      }
+      WORD_COUNT.set(sum);
+      context.write(key, WORD_COUNT);
     }
   }
 
