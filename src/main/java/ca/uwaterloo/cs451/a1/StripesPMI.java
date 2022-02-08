@@ -210,12 +210,12 @@ public class StripesPMI extends Configured implements Tool {
     private static final HashMapWritable OUTPUT_MAP_VALUE = new HashMapWritable();
     private Map<String, Integer> c_yMapper = new HashMap<>();
     private int threshold = 1;
-    private int number_of_lines = 1;
+    private long number_of_lines = 1L;
 
     @Override
     public void setup(Context context) throws IOException{
       threshold = context.getConfiguration().getInt("threshold", 1);
-      number_of_lines = context.getConfiguration().getInt("numberOfLines", 1);
+      number_of_lines = context.getConfiguration().getInt("numberOfLines", 1L);
 
       String sidedata_dir_path = context.getConfiguration().get("sidedata_dir", "_temp_StripesPMI");
       Path sidedata_dir = new Path(sidedata_dir_path);
@@ -364,6 +364,8 @@ public class StripesPMI extends Configured implements Tool {
     boolean successAtJob1 = job1.waitForCompletion(true);
     System.out.println("Job2 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
+    long lineCounter = job1.getCounters().findCounter(Job1LineCounter.LINE_COUNTER).getValue();
+
     if(successAtJob1){
       Job job2 = Job.getInstance(getConf());
       job2.setJobName(StripesPMI.class.getSimpleName() + " Job2 : Calculate PMI(x,y) = p(y|x)/p(y)");
@@ -375,6 +377,7 @@ public class StripesPMI extends Configured implements Tool {
 
       job2.getConfiguration().setInt("threshold", args.threshold);
       job2.getConfiguration().set("sidedata_dir", tempOutput);
+      job2.getConfiguration().set("numberOfLines", lineCounter);
   
       job2.setNumReduceTasks(args.numReducers);
 
