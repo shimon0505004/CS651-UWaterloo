@@ -404,7 +404,8 @@ public class StripesPMI extends Configured implements Tool {
       boolean successAtJob2 = job2.waitForCompletion(true);
       System.out.println("Job2 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
-
+      if(successAtJob2)
+        FileSystem.get(getConf()).delete(tempOutputDir, true);
 
 
     }
