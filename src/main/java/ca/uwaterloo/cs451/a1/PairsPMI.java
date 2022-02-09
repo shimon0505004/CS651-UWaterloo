@@ -150,6 +150,7 @@ public class PairsPMI extends Configured implements Tool {
     private static final IntWritable ONE = new IntWritable(1);
 
     private static final Set<String> uniqueWords = new HashSet();
+    private static final Set<String> uniquePairs = new HashSet();
 
     @Override
     public void setup(Context context) {
@@ -177,8 +178,9 @@ public class PairsPMI extends Configured implements Tool {
         }
       }    
 
-      MAP.clear();
+      uniquePairs.clear();
       for(int i=0; i <= lastIndex; i++){
+        
         for(int j=0; j <= lastIndex; j++){
           
           if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
@@ -187,13 +189,11 @@ public class PairsPMI extends Configured implements Tool {
 
           KEYPAIR.set(tokens.get(i), tokens.get(j));
 
-          if(!MAP.containsKey(tokens.get(j)))         //Take pairs like (A,B) only once. Say line is A, B, C, B. This will ensure if (B,1) is already in, then no more entries are made.
-            MAP.increment(tokens.get(j));
-
+          if(!uniquePairs.containsKey(KEYPAIR.toString())){
+            uniquePairs.add(KEYPAIR.toString());                //Put keypair (A,B) in the set. (B,A) will also be put in the set
+            context.write(KEYPAIR, ONE);                        //Emit ((A,B), ONE) and sum them up
+          }          
         }
-
-        KEY.set(tokens.get(i));
-        context.write(KEY, MAP);
 
       }
 
@@ -201,65 +201,100 @@ public class PairsPMI extends Configured implements Tool {
   }
 
   private static final class SecondCombiner extends
-      Reducer<PairOfStrings, PairOfInts, PairOfStrings, PairOfInts> {
+      Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
     private static final IntWritable SUM = new IntWritable();
-    private static final PairOfInts RESULT = new PairOfInts();
+    
  
     @Override
-    public void reduce(PairOfStrings key, Iterable<PairOfInts> values, Context context)
+    public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
-      Iterator<PairOfInts> iter = values.iterator();
-      int leftSum = 0;
-      int rightSum = 0;
-      while (iter.hasNext()) {
-        PairOfInts valuePair = iter.next();
-        leftSum += valuePair.getLeftElement();
-        rightSum +=  valuePair.getRightElement();
-      }
 
-      RESULT.set(leftSum, rightSum);
-      context.write(key, RESULT);
+      // Sum up values.
+      Iterator<IntWritable> iter = values.iterator();
+      int sum = 0;
+      while (iter.hasNext()) {
+        sum += iter.next().get();
+      }
+      SUM.set(sum);
+      context.write(key, SUM);
+
     }
   }  
 
   private static final class SecondReducer extends
-    Reducer<PairOfStrings, PairOfInts, PairOfStrings, PairOfFloatInt> {
+    Reducer<PairOfStrings, IntWritable, PairOfStrings, Text> {
     private static final PairOfFloatInt RESULT = new PairOfFloatInt();
-    private static final PairOfStrings KEYPAIR = new PairOfStrings();
+
+    private int threshold = 1;
+    private long number_of_lines = 1L;
+    private Map<String, Integer> countMapper = new HashMap<>();
+
     private float p_y = 0.0f;
 
     @Override
     public void setup(Context context) {
+
+      threshold = context.getConfiguration().getInt("threshold", 1);
+      number_of_lines = context.getConfiguration().getLong("numberOfLines", 1L);
+
+      String sidedata_dir_path = context.getConfiguration().get("sidedata_dir", "_temp_PairsPMI");
+      Path sidedata_dir = new Path(sidedata_dir_path);
+
+      FileSystem fs = FileSystem.get(context.getConfiguration());
+      PathFilter filter = new PathFilter() {
+
+        @Override
+        public boolean accept(Path path) {
+            return path.getName().startsWith("part-r-");
+        }
+      };
+
+      FileStatus[] fileStatuses = fs.listStatus(sidedata_dir, filter);
+      for(FileStatus file: fileStatuses){
+        BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(file.getPath()) , "UTF-8"));
+        String line = null;
+        while((line = reader.readLine()) != null) {
+          String[] words = line.split("\\s+");
+          if(words.length == 2){
+            String yKey = words[0];
+            int c_y = Integer.parseInt(words[1]);
+            countMapper.put(yKey, c_y);
+          }
+        }
+        reader.close();
+      }
+
     }
 
     @Override
-    public void reduce(PairOfStrings key, Iterable<PairOfInts> values, Context context)
+    public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
-      Iterator<PairOfInts> iter = values.iterator();
-      int numerator = 0;
-      int denominator = 0;
+
+      // Sum up values.
+      Iterator<IntWritable> iter = values.iterator();
+      int c_X_Y = 0;
       while (iter.hasNext()) {
-        PairOfInts valuePair = iter.next();
-        numerator += valuePair.getLeftElement();
-        denominator +=  valuePair.getRightElement();
+        c_X_Y += iter.next().get();
+      }
+      SUM.set(c_X_Y);
+
+      int c_X = countMapper.get(key.getLeftElement());
+      int c_Y = countMapper.get(key.getRightElement());
+
+      if(c_X_Y >= threshold){
+        float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
+
+        String output = "[PMI(x,y): "+ pmi_x_y +"c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
+        TEMPOUTPUT.set(output);
+        context.write(key, TEMPOUTPUT);
       }
 
-
-      if (key.getRightElement().equals("*")) {
-        p_y = (numerator*(1.0f))/(denominator);
-      } else {
-        float p_y_by_x = (numerator*(1.0f))/(denominator);
-        float pmi_x_y = (float)(java.lang.Math.log10(p_y_by_x / p_y));
-        RESULT.set(pmi_x_y, numerator);
-        KEYPAIR.set(key.getRightElement(), key.getLeftElement());
-        context.write(KEYPAIR, RESULT);
-      }
     }
   }
 
-  private static final class SecondPartitioner extends Partitioner<PairOfStrings, PairOfInts> {
+  private static final class SecondPartitioner extends Partitioner<PairOfStrings, IntWritable> {
     @Override
-    public int getPartition(PairOfStrings key, PairOfInts value, int numReduceTasks) {
+    public int getPartition(PairOfStrings key, IntWritable value, int numReduceTasks) {
       return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
     }
   }
@@ -365,11 +400,10 @@ public class PairsPMI extends Configured implements Tool {
       FileInputFormat.setInputPaths(job2, new Path(args.input));
       FileOutputFormat.setOutputPath(job2, new Path(args.output));
 
-      job2.setInputFormatClass(KeyValueTextInputFormat.class);
       job2.setMapOutputKeyClass(PairOfStrings.class);
-      job2.setMapOutputValueClass(PairOfInts.class);
+      job2.setMapOutputValueClass(IntWritable.class);
       job2.setOutputKeyClass(PairOfStrings.class);
-      job2.setOutputValueClass(PairOfFloatInt.class);
+      job2.setOutputValueClass(Text.class);
       job2.setOutputFormatClass(TextOutputFormat.class);
 
       job2.setMapperClass(SecondMapper.class);
