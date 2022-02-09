@@ -144,9 +144,12 @@ public class PairsPMI extends Configured implements Tool {
     }
   }
 
-  private static final class SecondMapper extends Mapper<Text, Text, PairOfStrings, PairOfInts> {
+
+  private static final class SecondMapper extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
     private static final PairOfStrings KEYPAIR = new PairOfStrings();
-    private static final PairOfInts VALUEPAIR = new PairOfInts();
+    private static final IntWritable ONE = new IntWritable(1);
+
+    private static final Set<String> uniqueWords = new HashSet();
 
     @Override
     public void setup(Context context) {
@@ -156,17 +159,44 @@ public class PairsPMI extends Configured implements Tool {
     @Override
     public void map(Text key, Text value, Context context)
         throws IOException, InterruptedException {
-      
-      String[] keys = key.toString().substring(1,key.toString().length()-1).split(", ");
-      String leftKey = keys[0];
-      String rightKey = keys[1];
-      KEYPAIR.set(leftKey, rightKey);
+            
+      List<String> tokens = Tokenizer.tokenize(value.toString());
 
-      String[] values = value.toString().substring(1,value.toString().length()-1).split(", ");
-      int leftVal = Integer.parseInt(values[0]);
-      int rightVal = Integer.parseInt(values[1]);
-      VALUEPAIR.set(leftVal,rightVal);
-      context.write(KEYPAIR, VALUEPAIR);      
+      uniqueWords.clear();
+      
+      int lastIndex = tokens.size() - 1;
+
+      for (int i=0; i< tokens.size(); i++) {
+        if(!uniqueWords.contains(tokens.get(i))){
+          uniqueWords.add(tokens.get(i));
+        }
+
+        if(uniqueWords.size() >= 40){   //First 40 words in each line, words need to be unique.
+          lastIndex = i;
+          break;
+        }
+      }    
+
+      MAP.clear();
+      for(int i=0; i <= lastIndex; i++){
+        for(int j=0; j <= lastIndex; j++){
+          
+          if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
+            continue;
+          }
+
+          KEYPAIR.set(tokens.get(i), tokens.get(j));
+
+          if(!MAP.containsKey(tokens.get(j)))         //Take pairs like (A,B) only once. Say line is A, B, C, B. This will ensure if (B,1) is already in, then no more entries are made.
+            MAP.increment(tokens.get(j));
+
+        }
+
+        KEY.set(tokens.get(i));
+        context.write(KEY, MAP);
+
+      }
+
     }
   }
 
@@ -276,7 +306,7 @@ public class PairsPMI extends Configured implements Tool {
     LOG.info(" - number of reducers: " + args.numReducers);
 
     Job job1 = Job.getInstance(getConf());
-    job1.setJobName("Job1 - Count Lines, Words and Co-Occurance Pairs");
+    job1.setJobName("Job1 - Count Lines and Words");
     job1.setJarByClass(PairsPMI.class);
 
     
@@ -286,20 +316,24 @@ public class PairsPMI extends Configured implements Tool {
     FileSystem.get(getConf()).delete(tempOutputDir, true);
 
     job1.getConfiguration().setInt("threshold", args.threshold);
+    job1.getConfiguration().set("sidedata_dir", tempOutput);
+
     job1.setNumReduceTasks(args.numReducers);
 
     FileInputFormat.setInputPaths(job1, new Path(args.input));
     FileOutputFormat.setOutputPath(job1, tempOutputDir);
 
-    job1.setMapOutputKeyClass(PairOfStrings.class);
+    job1.setMapOutputKeyClass(Text.class);
     job1.setMapOutputValueClass(IntWritable.class);
-    job1.setOutputKeyClass(PairOfStrings.class);
-    job1.setOutputValueClass(PairOfInts.class);
+    job1.setOutputKeyClass(Text.class);
+    job1.setOutputValueClass(IntWritable.class);
+    job1.setOutputFormatClass(TextOutputFormat.class);
+
 
     job1.setMapperClass(FirstMapper.class);
     job1.setCombinerClass(FirstCombiner.class);
     job1.setReducerClass(FirstReducer.class);
-    job1.setPartitionerClass(FirstPartitioner.class);
+
 
     job1.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
     job1.getConfiguration().set("mapreduce.map.memory.mb", "3072");
@@ -311,9 +345,11 @@ public class PairsPMI extends Configured implements Tool {
     boolean successAtJob1 = job1.waitForCompletion(true);
     System.out.println("Job1 Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
+    long lineCounter = job1.getCounters().findCounter(Job1LineCounter.LINE_COUNTER).getValue();
+
     if(successAtJob1){
       Job job2 = Job.getInstance(getConf());
-      job2.setJobName("Job2 - Calculate PMI and Co-Occurance Pairs from Job1");
+      job2.setJobName(PairsPMI.class.getSimpleName() + " Job2 : Calculate PMI(x,y)");
       job2.setJarByClass(PairsPMI.class);
 
       // Delete the output directory if it exists already.
@@ -321,10 +357,13 @@ public class PairsPMI extends Configured implements Tool {
       FileSystem.get(getConf()).delete(outputDir, true);
 
       job2.getConfiguration().setInt("threshold", args.threshold);
+      job2.getConfiguration().set("sidedata_dir", tempOutput);
+      job2.getConfiguration().setLong("numberOfLines", lineCounter);
+
       job2.setNumReduceTasks(args.numReducers);
 
-      FileInputFormat.setInputPaths(job2, tempOutputDir);
-      FileOutputFormat.setOutputPath(job2, outputDir);
+      FileInputFormat.setInputPaths(job2, new Path(args.input));
+      FileOutputFormat.setOutputPath(job2, new Path(args.output));
 
       job2.setInputFormatClass(KeyValueTextInputFormat.class);
       job2.setMapOutputKeyClass(PairOfStrings.class);
