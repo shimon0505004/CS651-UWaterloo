@@ -93,7 +93,7 @@ public class StripesPMI extends Configured implements Tool {
           context.write(WORD, ONE);
         }
 
-        if(wordSet.size() > 40)   //First 40 words in each line, words need to be unique.
+        if(wordSet.size() >= 40)   //First 40 words in each line, words need to be unique.
           break;
       }
 
@@ -152,7 +152,7 @@ public class StripesPMI extends Configured implements Tool {
   private static final class SecondMapper extends Mapper<LongWritable, Text, Text, HMapStIW> {
     private static final HMapStIW MAP = new HMapStIW();
     private static final Text KEY = new Text();
-    private static final Set<String> wordSet = new HashSet();
+    private static final Set<String> uniqueWords = new HashSet();
     
 
     @Override
@@ -165,16 +165,16 @@ public class StripesPMI extends Configured implements Tool {
         throws IOException, InterruptedException {
       List<String> tokens = Tokenizer.tokenize(value.toString());
 
-      wordSet.clear();
+      uniqueWords.clear();
       
       int lastIndex = tokens.size() - 1;
-      int i=0;
+
       for (int i=0; i< tokens.size(); i++) {
-        if(!wordSet.contains(word)){
-          wordSet.add(word);
+        if(!uniqueWords.contains(tokens.get(i))){
+          uniqueWords.add(tokens.get(i));
         }
 
-        if(wordSet.size() > 40){   //First 40 words in each line, words need to be unique.
+        if(uniqueWords.size() >= 40){   //First 40 words in each line, words need to be unique.
           lastIndex = i;
           break;
         }
@@ -271,27 +271,25 @@ public class StripesPMI extends Configured implements Tool {
 
       int c_X = c_yMapper.get(key.toString());
       
-      if(c_X >= threshold){
-        for(String yKey: map.keySet()){
-          if(yKey.compareTo(key.toString())!=0){
-  
-            int c_X_Y = map.get(yKey);
-            int c_Y = c_yMapper.get(yKey);
-  
-            if(c_X_Y >= threshold){
-              float p_Y_bar_X = ((c_X_Y * 1.0f)/c_X);
-              float p_y = (c_Y * 1.0f)/number_of_lines;
-              float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
-              CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
-              OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);  
-            }
-  
+      for(String yKey: map.keySet()){
+        if(yKey.compareTo(key.toString())!=0){
+
+          int c_X_Y = map.get(yKey);
+          int c_Y = c_yMapper.get(yKey);
+
+          if(c_X_Y >= threshold){
+            float p_Y_bar_X = ((c_X_Y * 1.0f)/c_X);
+            float p_y = (c_Y * 1.0f)/number_of_lines;
+            float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
+            CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
+            OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);  
           }
-        }  
-        
-        if(OUTPUT_MAP_VALUE.size() > 0)
-          context.write(key, OUTPUT_MAP_VALUE);
-      }
+
+        }
+      }  
+      
+      if(OUTPUT_MAP_VALUE.size() > 0)
+        context.write(key, OUTPUT_MAP_VALUE);
 
     }
   }
