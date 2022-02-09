@@ -285,11 +285,14 @@ public class StripesPMI extends Configured implements Tool {
           if(c_X_Y >= threshold){
             float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
 
+            /*
             CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
             OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
-            
-            String output = "c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines;             
+            */
+
+            String output = "[c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
             TEMPOUTPUT.set(output);
+            OUTPUT_MAP_VALUE.put(yKey, TEMPOUTPUT);
           }
 
         }
