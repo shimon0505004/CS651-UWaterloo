@@ -180,8 +180,8 @@ public class StripesPMI extends Configured implements Tool {
         }
       }    
 
-      for(int i=0; i <= lastIndex; i++){
-        MAP.clear();
+					MAP.clear();	
+      for(int i=0; i <= lastIndex; i++){        
         for(int j=0; j <= lastIndex; j++){
           
           if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
@@ -388,7 +388,7 @@ public class StripesPMI extends Configured implements Tool {
 
     if(successAtJob1){
       Job job2 = Job.getInstance(getConf());
-      job2.setJobName(StripesPMI.class.getSimpleName() + " Job2 : Calculate PMI(x,y) = p(y|x)/p(y)");
+      job2.setJobName(StripesPMI.class.getSimpleName() + " Job2 : Calculate PMI(x,y)");
       job2.setJarByClass(StripesPMI.class);
 
       // Delete the output directory if it exists already.
