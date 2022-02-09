@@ -180,8 +180,9 @@ public class StripesPMI extends Configured implements Tool {
         }
       }    
 
-					MAP.clear();	
       for(int i=0; i <= lastIndex; i++){        
+        MAP.clear();	        
+        KEY.set(tokens.get(i));
         for(int j=0; j <= lastIndex; j++){
           
           if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
@@ -192,8 +193,6 @@ public class StripesPMI extends Configured implements Tool {
             MAP.increment(tokens.get(j));
 
         }
-
-        KEY.set(tokens.get(i));
         context.write(KEY, MAP);
 
       }
@@ -221,7 +220,7 @@ public class StripesPMI extends Configured implements Tool {
     private static final PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt();
     
     private static final HashMapWritable OUTPUT_MAP_VALUE = new HashMapWritable();
-    private Map<String, Integer> c_yMapper = new HashMap<>();
+    private Map<String, Integer> singleWordCountMap = new HashMap<>();
     private int threshold = 1;
     private long number_of_lines = 1L;
 
@@ -253,9 +252,9 @@ public class StripesPMI extends Configured implements Tool {
         while((line = reader.readLine()) != null) {
           String[] words = line.split("\\s+");
           if(words.length == 2){
-            String yKey = words[0];
-            int c_y = Integer.parseInt(words[1]);
-            c_yMapper.put(yKey, c_y);
+            String word = words[0];
+            int wordCount = Integer.parseInt(words[1]);
+            singleWordCountMap.put(word, wordCount);
           }
         }
         reader.close();
@@ -274,26 +273,23 @@ public class StripesPMI extends Configured implements Tool {
 
       OUTPUT_MAP_VALUE.clear();
 
-      int c_X = c_yMapper.get(key.toString());
       
-      for(String yKey: map.keySet()){
-        if(yKey.compareTo(key.toString())!=0){
+      for(String word: map.keySet()){
+        int c_X = singleWordCountMap.get(key.toString());
+        int c_Y = singleWordCountMap.get(word);
+        int c_X_Y = map.get(word);
 
-          int c_X_Y = map.get(yKey);
-          int c_Y = c_yMapper.get(yKey);
+        if(c_X_Y >= threshold){
+          float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
 
-          if(c_X_Y >= threshold){
-            float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
+          /*
+          CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
+          OUTPUT_MAP_VALUE.put(word, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
+          */
 
-            /*
-            CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
-            OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
-            */
-
-            String output = "[c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
-            TEMPOUTPUT.set(output);
-            OUTPUT_MAP_VALUE.put(yKey, TEMPOUTPUT);
-          }
+          String output = "["+ key.toString() + " : " + c_X + " , " + word + " : " + c_Y + " , (" + key.toString()  + " , " + word + " ): " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
+          TEMPOUTPUT.set(output);
+          OUTPUT_MAP_VALUE.put(word, TEMPOUTPUT);
 
         }
       }  
