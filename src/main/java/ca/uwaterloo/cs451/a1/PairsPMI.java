@@ -20,6 +20,8 @@ import io.bespin.java.util.Tokenizer;
 import org.apache.hadoop.conf.Configured;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.PathFilter;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -45,6 +47,8 @@ import tl.lin.data.map.HMapKI;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.*;
 
 /**
@@ -158,7 +162,7 @@ public class PairsPMI extends Configured implements Tool {
     }
 
     @Override
-    public void map(Text key, Text value, Context context)
+    public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
             
       List<String> tokens = Tokenizer.tokenize(value.toString());
@@ -189,7 +193,7 @@ public class PairsPMI extends Configured implements Tool {
 
           KEYPAIR.set(tokens.get(i), tokens.get(j));
 
-          if(!uniquePairs.containsKey(KEYPAIR.toString())){
+          if(!uniquePairs.contains(KEYPAIR.toString())){
             uniquePairs.add(KEYPAIR.toString());                //Put keypair (A,B) in the set. (B,A) will also be put in the set
             context.write(KEYPAIR, ONE);                        //Emit ((A,B), ONE) and sum them up
           }          
@@ -224,6 +228,7 @@ public class PairsPMI extends Configured implements Tool {
   private static final class SecondReducer extends
     Reducer<PairOfStrings, IntWritable, PairOfStrings, Text> {
     private static final PairOfFloatInt RESULT = new PairOfFloatInt();
+    private static final Text TEMPOUTPUT = new Text();
 
     private int threshold = 1;
     private long number_of_lines = 1L;
@@ -232,7 +237,7 @@ public class PairsPMI extends Configured implements Tool {
     private float p_y = 0.0f;
 
     @Override
-    public void setup(Context context) {
+    public void setup(Context context)  throws IOException{
 
       threshold = context.getConfiguration().getInt("threshold", 1);
       number_of_lines = context.getConfiguration().getLong("numberOfLines", 1L);
@@ -276,13 +281,13 @@ public class PairsPMI extends Configured implements Tool {
       while (iter.hasNext()) {
         c_X_Y += iter.next().get();
       }
-      SUM.set(c_X_Y);
-
+      
       int c_X = countMapper.get(key.getLeftElement());
       int c_Y = countMapper.get(key.getRightElement());
 
       if(c_X_Y >= threshold){
         float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
+        RESULT.set(pmi_x_y, c_X_Y);
 
         String output = "[PMI(x,y): "+ pmi_x_y +"c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
         TEMPOUTPUT.set(output);
