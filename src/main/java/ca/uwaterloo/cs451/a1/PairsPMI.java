@@ -63,115 +63,65 @@ import java.util.*;
 public class PairsPMI extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(PairsPMI.class);
 
-  private static final class FirstMapper extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
-    private static final PairOfStrings PAIR = new PairOfStrings();
+  private static enum Job1LineCounter{
+    LINE_COUNTER
+  };
+
+  // Mapper: emits (token, 1) for every unique word occurrence in every word.
+  public static final class FirstMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
+    // Reuse objects to save overhead of object creation.
     private static final IntWritable ONE = new IntWritable(1);
-    private static final HMapKI<PairOfStrings> DUPLICATECHECKERSET = new HMapKI<PairOfStrings>();
+    private static final Text WORD = new Text();
+    private static final Set<String> wordSet = new HashSet();
+    
 
-    //private int window = 2;
-
-    @Override
-    public void setup(Context context) {
-      //window = context.getConfiguration().getInt("window", 2);
-    }
 
     @Override
     public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
-      List<String> tokens = Tokenizer.tokenize(value.toString());
-      DUPLICATECHECKERSET.clear();
 
-      //Used for counting number of lines
-      PAIR.set("*", "*");
-      context.write(PAIR, ONE);                                           //So, (*,*) will contain the total number of lines and will be available at the beginning of sorted order
-      DUPLICATECHECKERSET.put(PAIR, 1);     
+      wordSet.clear();
 
-      int lastIndex = tokens.size() - 1;
-      Set<String> uniqueWords = new HashSet<>();    
-      for(int i=0; i< tokens.size(); i++){
-        if(!uniqueWords.contains(tokens.get(i))){
-          uniqueWords.add(tokens.get(i));
-
-          if(uniqueWords.size() >= 40){
-            lastIndex = i;
-          }
+      for (String word : Tokenizer.tokenize(value.toString())) {
+        if(!wordSet.contains(word)){
+          wordSet.add(word);
+          WORD.set(word);
+          context.write(WORD, ONE);
         }
-      }    
 
-      for (int i = 0; i <= lastIndex; i++) {
-
-        PAIR.set(tokens.get(i), "*");  
-        if(!DUPLICATECHECKERSET.containsKey(PAIR)){
-          context.write(PAIR, ONE);                                      
-          DUPLICATECHECKERSET.put(PAIR, 1);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
-        }
-        
-        PAIR.set("*", tokens.get(i));  
-        if(!DUPLICATECHECKERSET.containsKey(PAIR)){
-          context.write(PAIR, ONE);                                      
-          DUPLICATECHECKERSET.put(PAIR, 1);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
-        }  
-
-        for(int j = i+1; j <= lastIndex; j++)  {           // Ensure only the first 40 words in each line
-
-          PAIR.set(tokens.get(j), "*");  
-          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
-            context.write(PAIR, ONE);                                   // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event B     
-            DUPLICATECHECKERSET.put(PAIR, 1);
-          }
-
-          PAIR.set("*", tokens.get(j));  
-          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
-            context.write(PAIR, ONE);                                      
-            DUPLICATECHECKERSET.put(PAIR, 1);                         // When Line is like A B C A B C, Take co-occuring pair (A,B) only once, which will indicate line containing event A  
-          }  
-
-          if((tokens.get(i).compareTo(tokens.get(j))) == 0) continue;       // When Line is like A B C A B C, avoid counting co-occuring pairs like (A A)
-
-          PAIR.set(tokens.get(i), tokens.get(j));
-          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
-            context.write(PAIR, ONE);                                    // When Line is like A B C A B C, Take co-occuring pair (A,B) only once  
-            DUPLICATECHECKERSET.put(PAIR, 1);
-          }
-
-          PAIR.set(tokens.get(j), tokens.get(i));
-          if(!DUPLICATECHECKERSET.containsKey(PAIR)){
-            context.write(PAIR, ONE);                                    // When Line is like A B C A B C, Take co-occuring pair (B,A) only once  
-            DUPLICATECHECKERSET.put(PAIR, 1);
-          }
-        }
+        if(wordSet.size() >= 40)   //First 40 words in each line, words need to be unique.
+          break;
       }
 
-      DUPLICATECHECKERSET.clear();
-
+      context.getCounter(Job1LineCounter.LINE_COUNTER).increment(1L);
     }
   }
-
-  private static final class FirstCombiner extends
-      Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
+  
+  
+  // Reducer: sums up all the counts.
+  public static final class FirstCombiner extends Reducer<Text, IntWritable, Text, IntWritable> {
+    // Reuse objects.
     private static final IntWritable SUM = new IntWritable();
 
     @Override
-    public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
+    public void reduce(Text key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
+      // Sum up values.
       Iterator<IntWritable> iter = values.iterator();
       int sum = 0;
       while (iter.hasNext()) {
         sum += iter.next().get();
       }
-
       SUM.set(sum);
       context.write(key, SUM);
     }
   }
 
-  private static final class FirstReducer extends
-      Reducer<PairOfStrings, IntWritable, PairOfStrings, PairOfInts> {
-    private static final PairOfInts RESULT = new PairOfInts();
-    private static final PairOfStrings PAIR = new PairOfStrings();
-    private int denominator = 0;
-    private int numerator = 0;
-
+    
+  // Reducer: Calculating C(y).
+  public static final class FirstReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+    // Reuse objects.
+    private static final IntWritable WORD_COUNT = new IntWritable();
     private int threshold = 1;
 
     @Override
@@ -180,32 +130,17 @@ public class PairsPMI extends Configured implements Tool {
     }
 
     @Override
-    public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
+    public void reduce(Text key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
+      // Sum up values.
       Iterator<IntWritable> iter = values.iterator();
       int sum = 0;
       while (iter.hasNext()) {
         sum += iter.next().get();
       }
 
-      if (key.getRightElement().equals("*")) {
-        denominator = sum;
-      } else {
-        if(sum > threshold){
-          // For PMI(x,y), if count of x/y is less than threshold, then count of (x,y) will definitely be less than threshold.
-          numerator = sum;
-          RESULT.set(numerator, denominator);
-          PAIR.set(key.getRightElement(), key.getLeftElement());
-          context.write(PAIR, RESULT);
-        }
-      }
-    }
-  }
-
-  private static final class FirstPartitioner extends Partitioner<PairOfStrings, IntWritable> {
-    @Override
-    public int getPartition(PairOfStrings key, IntWritable value, int numReduceTasks) {
-      return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+      WORD_COUNT.set(sum);
+      context.write(key, WORD_COUNT);
     }
   }
 
