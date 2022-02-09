@@ -152,6 +152,7 @@ public class StripesPMI extends Configured implements Tool {
   private static final class SecondMapper extends Mapper<LongWritable, Text, Text, HMapStIW> {
     private static final HMapStIW MAP = new HMapStIW();
     private static final Text KEY = new Text();
+    private static final Set<String> wordSet = new HashSet();
     
 
     @Override
@@ -164,27 +165,38 @@ public class StripesPMI extends Configured implements Tool {
         throws IOException, InterruptedException {
       List<String> tokens = Tokenizer.tokenize(value.toString());
 
-      for (int i = 0; i < tokens.size(); i++) {
-        MAP.clear();
-        MAP.increment(tokens.get(i));                 //Used for keeping count of individual words A as (A,A)  
+      wordSet.clear();
+      
+      int lastIndex = tokens.size() - 1;
+      int i=0;
+      for (int i=0; i< tokens.size(); i++) {
+        if(!wordSet.contains(word)){
+          wordSet.add(word);
+        }
 
-        for (int j = 0; j < tokens.size(); j++) {
-          if (i == j) continue;
+        if(wordSet.size() > 40){   //First 40 words in each line, words need to be unique.
+          lastIndex = i;
+          break;
+        }
+      }    
+
+      for(int i=0; i <= lastIndex; i++){
+        MAP.clear();
+        for(int j=0; j <= lastIndex; j++){
           
-          if((tokens.get(i).compareTo(tokens.get(j))) == 0) continue;   // Skip cases like (A,A)
-          
+          if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
+            continue;
+          }
+
           if(!MAP.containsKey(tokens.get(j)))         //Take pairs like (A,B) only once. Say line is A, B, C, B. This will ensure if (B,1) is already in, then no more entries are made.
             MAP.increment(tokens.get(j));
 
-          if(MAP.size() >= 40)      //If map has 39 elements, that means including key there are 40 unique words.
-            break;
         }
 
         KEY.set(tokens.get(i));
         context.write(KEY, MAP);
+
       }
-
-
 
     }
   }
@@ -257,7 +269,7 @@ public class StripesPMI extends Configured implements Tool {
 
       OUTPUT_MAP_VALUE.clear();
 
-      int c_X = map.get(key.toString());
+      int c_X = c_yMapper.get(key.toString());
       
       if(c_X >= threshold){
         for(String yKey: map.keySet()){
