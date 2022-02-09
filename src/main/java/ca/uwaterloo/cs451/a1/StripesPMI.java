@@ -219,10 +219,15 @@ public class StripesPMI extends Configured implements Tool {
   private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {
 
     private static final PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt();
+    
     private static final HashMapWritable OUTPUT_MAP_VALUE = new HashMapWritable();
     private Map<String, Integer> c_yMapper = new HashMap<>();
     private int threshold = 1;
     private long number_of_lines = 1L;
+
+
+    private static final Text TEMPOUTPUT = new Text();
+
 
     @Override
     public void setup(Context context) throws IOException{
@@ -278,11 +283,13 @@ public class StripesPMI extends Configured implements Tool {
           int c_Y = c_yMapper.get(yKey);
 
           if(c_X_Y >= threshold){
-            float p_Y_bar_X = ((c_X_Y * 1.0f)/c_X);
-            float p_y = (c_Y * 1.0f)/number_of_lines;
-            float pmi_x_y = (float)(java.lang.Math.log10(p_Y_bar_X / p_y));
+            float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
+
             CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
-            OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);  
+            OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
+            
+            String output = "c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines;             
+            TEMPOUTPUT.set(output);
           }
 
         }
