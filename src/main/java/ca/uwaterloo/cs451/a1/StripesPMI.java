@@ -280,21 +280,23 @@ public class StripesPMI extends Configured implements Tool {
       while(yKeyIterator.hasNext()){
         String yKey = yKeyIterator.next();
 
-        int c_X_Y = stripeMap.get(yKey);
+        if(yKey != null){
+          int c_X_Y = stripeMap.get(yKey);
 
-        if(c_X_Y >= threshold){
-          int c_X = singleWordCountMap.get(key.toString());
-          int c_Y = singleWordCountMap.getOrDefault(yKey,-1);
-  
-          float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
-
-          
-          CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
-          OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
+          if(c_X_Y >= threshold && key != null){
+            int c_X = singleWordCountMap.getOrDefault(key.toString(), -1);
+            int c_Y = singleWordCountMap.getOrDefault(yKey, -1);
+    
+            if(c_X > 0 && c_Y > 0){
+              float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
+              CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
+              OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
+            }
+          }
         }
       }
       
-      if(OUTPUT_MAP_VALUE.size() > 0)
+      if(OUTPUT_MAP_VALUE.size() > 0 && key != null)
         context.write(key, OUTPUT_MAP_VALUE);
       
       
