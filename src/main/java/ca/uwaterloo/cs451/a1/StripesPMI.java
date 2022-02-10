@@ -86,16 +86,15 @@ public class StripesPMI extends Configured implements Tool {
         throws IOException, InterruptedException {
 
       wordSet.clear();
+      List<String> words = Tokenizer.tokenize(value.toString());
 
-      for (String word : Tokenizer.tokenize(value.toString())) {
+      for (int i=0; i< Math.min(words.size(), 40); i++) {
+        String word = words.get(i);
         if(!wordSet.contains(word)){
           wordSet.add(word);
           WORD.set(word);
           context.write(WORD, ONE);
         }
-
-        if(wordSet.size() >= 40)   //First 40 words in each line, words need to be unique.
-          break;
       }
 
       context.getCounter(Job1LineCounter.LINE_COUNTER).increment(1L);
@@ -144,10 +143,8 @@ public class StripesPMI extends Configured implements Tool {
         sum += iter.next().get();
       }
 
-      if(sum >= threshold){
-        WORD_COUNT.set(sum);
-        context.write(key, WORD_COUNT);  
-      }
+      WORD_COUNT.set(sum);
+      context.write(key, WORD_COUNT);  
     }
   }
 
@@ -168,25 +165,10 @@ public class StripesPMI extends Configured implements Tool {
         throws IOException, InterruptedException {
       List<String> tokens = Tokenizer.tokenize(value.toString());
 
-      uniqueWords.clear();
-      
-      int lastIndex = tokens.size() - 1;
-
-      for (int i=0; i< tokens.size(); i++) {
-        if(!uniqueWords.contains(tokens.get(i))){
-          uniqueWords.add(tokens.get(i));
-        }
-
-        if(uniqueWords.size() >= 40){   //First 40 words in each line, words need to be unique.
-          lastIndex = i;
-          break;
-        }
-      }    
-
-      for(int i=0; i <= lastIndex; i++){        
+      for(int i=0; i < Math.min(tokens.size(), 40); i++){        
         MAP.clear();	        
         KEY.set(tokens.get(i));
-        for(int j=0; j <= lastIndex; j++){
+        for(int j=0; j < Math.min(tokens.size(), 40); j++){
           
           if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
             continue;
@@ -277,16 +259,14 @@ public class StripesPMI extends Configured implements Tool {
         if(yKey != null){
           int c_X_Y = stripeMap.get(yKey);
 
-          if(c_X_Y >= threshold && key != null){
-            int c_X = singleWordCountMap.getOrDefault(key.toString(), -1);
-            int c_Y = singleWordCountMap.getOrDefault(yKey, -1);
+          if(c_X_Y >= threshold){
+            int c_X = singleWordCountMap.get(key.toString());
+            int c_Y = singleWordCountMap.get(yKey);
     
-            if(c_X > 0 && c_Y > 0){
-              float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
+            float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
               
-              PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt(pmi_x_y, c_X_Y);         
-              OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
-            }
+            PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt(pmi_x_y, c_X_Y);         
+            OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
           }
         }
       }
