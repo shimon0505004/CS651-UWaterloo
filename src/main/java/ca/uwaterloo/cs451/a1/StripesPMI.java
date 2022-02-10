@@ -196,7 +196,7 @@ public class StripesPMI extends Configured implements Tool {
             MAP.increment(tokens.get(j));
 
         }
-        context.write(KEY, MAP);
+        context.write(KEY, MAP);  
 
       }
 
@@ -218,10 +218,7 @@ public class StripesPMI extends Configured implements Tool {
     }
   }
 
-  private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {
-
-    private static final PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt();
-    
+  private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {    
     private static final HashMapWritable OUTPUT_MAP_VALUE = new HashMapWritable();
     private Map<String, Integer> singleWordCountMap = new HashMap<>();
     private int threshold = 1;
@@ -273,12 +270,9 @@ public class StripesPMI extends Configured implements Tool {
         stripeMap.plus(iter.next());
       }
 
-      Iterator<String> yKeyIterator = stripeMap.keySet().iterator();
-
       OUTPUT_MAP_VALUE.clear();
 
-      while(yKeyIterator.hasNext()){
-        String yKey = yKeyIterator.next();
+      for(String yKey : stripeMap.keySet()){
 
         if(yKey != null){
           int c_X_Y = stripeMap.get(yKey);
@@ -289,7 +283,8 @@ public class StripesPMI extends Configured implements Tool {
     
             if(c_X > 0 && c_Y > 0){
               float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
-              CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
+              
+              PairOfFloatInt CO_OCCURANCE_PAIR_PMI_AND_COUNT = new PairOfFloatInt(pmi_x_y, c_X_Y);         
               OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
             }
           }
