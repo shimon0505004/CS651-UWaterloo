@@ -143,8 +143,10 @@ public class StripesPMI extends Configured implements Tool {
         sum += iter.next().get();
       }
 
-      WORD_COUNT.set(sum);
-      context.write(key, WORD_COUNT);
+      if(sum >= threshold){
+        WORD_COUNT.set(sum);
+        context.write(key, WORD_COUNT);  
+      }
     }
   }
 
@@ -224,6 +226,7 @@ public class StripesPMI extends Configured implements Tool {
     private int threshold = 1;
     private long number_of_lines = 1L;
 
+    private static final HMapStIW stripeMap = new HMapStIW();
 
     private static final Text TEMPOUTPUT = new Text();
 
@@ -265,34 +268,35 @@ public class StripesPMI extends Configured implements Tool {
     public void reduce(Text key, Iterable<HMapStIW> values, Context context)
         throws IOException, InterruptedException {
       Iterator<HMapStIW> iter = values.iterator();
-      HMapStIW map = new HMapStIW();
-
+      
+      stripeMap.clear();
       while (iter.hasNext()) {
-        map.plus(iter.next());
+        stripeMap.plus(iter.next());
       }
 
       OUTPUT_MAP_VALUE.clear();
 
-      
-      for(String word: map.keySet()){
-        int c_X = singleWordCountMap.get(key.toString());
-        int c_Y = singleWordCountMap.get(word);
-        int c_X_Y = map.get(word);
+      for(MapKI.Entry<String> entry: map.entrySet()){
+        int c_X_Y = entry.getValue();
+        String yKey = entry.getKey();
 
         if(c_X_Y >= threshold){
+          int c_X = singleWordCountMap.get(key.toString());
+          int c_Y = singleWordCountMap.getOrDefault(yKey,-1);
+  
           float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
 
-          /*
+          
           CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
-          OUTPUT_MAP_VALUE.put(word, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
-          */
+          OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
+          
 
-          String output = "["+ key.toString() + " : " + c_X + " , " + word + " : " + c_Y + " , (" + key.toString()  + " , " + word + " ): " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
+          String output = "["+ key.toString() + " : " + c_X + " , " + yKey + " : " + c_Y + " , (" + key.toString()  + " , " + yKey + " ): " + c_X_Y + " , #ofLines: " + number_of_lines + "]"+ " , " + entry.toString();             
           TEMPOUTPUT.set(output);
-          OUTPUT_MAP_VALUE.put(word, TEMPOUTPUT);
+          OUTPUT_MAP_VALUE.put(yKey, TEMPOUTPUT);
 
         }
-      }  
+      }
       
       if(OUTPUT_MAP_VALUE.size() > 0)
         context.write(key, OUTPUT_MAP_VALUE);
