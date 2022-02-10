@@ -226,9 +226,9 @@ public class PairsPMI extends Configured implements Tool {
   }  
 
   private static final class SecondReducer extends
-    Reducer<PairOfStrings, IntWritable, PairOfStrings, Text> {
+    Reducer<PairOfStrings, IntWritable, PairOfStrings, PairOfFloatInt> {
     private static final PairOfFloatInt RESULT = new PairOfFloatInt();
-    private static final Text TEMPOUTPUT = new Text();
+    //private static final Text TEMPOUTPUT = new Text();
 
     private int threshold = 1;
     private long number_of_lines = 1L;
@@ -289,9 +289,9 @@ public class PairsPMI extends Configured implements Tool {
         float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
         RESULT.set(pmi_x_y, c_X_Y);
 
-        String output = "[PMI(x,y): "+ pmi_x_y +"c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
-        TEMPOUTPUT.set(output);
-        context.write(key, TEMPOUTPUT);
+        //String output = "[PMI(x,y): "+ pmi_x_y +"c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
+        //TEMPOUTPUT.set(output);
+        context.write(key, RESULT);
       }
 
     }
@@ -408,7 +408,7 @@ public class PairsPMI extends Configured implements Tool {
       job2.setMapOutputKeyClass(PairOfStrings.class);
       job2.setMapOutputValueClass(IntWritable.class);
       job2.setOutputKeyClass(PairOfStrings.class);
-      job2.setOutputValueClass(Text.class);
+      job2.setOutputValueClass(PairOfFloatInt.class);
       job2.setOutputFormatClass(TextOutputFormat.class);
 
       job2.setMapperClass(SecondMapper.class);
