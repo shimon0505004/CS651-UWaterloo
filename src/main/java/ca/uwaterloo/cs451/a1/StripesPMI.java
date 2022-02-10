@@ -41,6 +41,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
+import tl.lin.data.map.MapKI;
 import tl.lin.data.map.HMapStIW;
 import tl.lin.data.map.HashMapWritable;
 import tl.lin.data.pair.PairOfFloatInt;
@@ -255,9 +256,7 @@ public class StripesPMI extends Configured implements Tool {
         while((line = reader.readLine()) != null) {
           String[] words = line.split("\\s+");
           if(words.length == 2){
-            String word = words[0];
-            int wordCount = Integer.parseInt(words[1]);
-            singleWordCountMap.put(word, wordCount);
+            singleWordCountMap.put(words[0], Integer.parseInt(words[1]));
           }
         }
         reader.close();
@@ -274,11 +273,14 @@ public class StripesPMI extends Configured implements Tool {
         stripeMap.plus(iter.next());
       }
 
+      Iterator<String> yKeyIterator = stripeMap.keySet().iterator();
+
       OUTPUT_MAP_VALUE.clear();
 
-      for(MapKI.Entry<String> entry: map.entrySet()){
-        int c_X_Y = entry.getValue();
-        String yKey = entry.getKey();
+      while(yKeyIterator.hasNext()){
+        String yKey = yKeyIterator.next();
+
+        int c_X_Y = stripeMap.get(yKey);
 
         if(c_X_Y >= threshold){
           int c_X = singleWordCountMap.get(key.toString());
@@ -289,18 +291,13 @@ public class StripesPMI extends Configured implements Tool {
           
           CO_OCCURANCE_PAIR_PMI_AND_COUNT.set(pmi_x_y, c_X_Y);
           OUTPUT_MAP_VALUE.put(yKey, CO_OCCURANCE_PAIR_PMI_AND_COUNT);
-          
-
-          String output = "["+ key.toString() + " : " + c_X + " , " + yKey + " : " + c_Y + " , (" + key.toString()  + " , " + yKey + " ): " + c_X_Y + " , #ofLines: " + number_of_lines + "]"+ " , " + entry.toString();             
-          TEMPOUTPUT.set(output);
-          OUTPUT_MAP_VALUE.put(yKey, TEMPOUTPUT);
-
         }
       }
       
       if(OUTPUT_MAP_VALUE.size() > 0)
         context.write(key, OUTPUT_MAP_VALUE);
-
+      
+      
     }
   }
 
