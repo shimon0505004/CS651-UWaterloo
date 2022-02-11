@@ -150,10 +150,6 @@ public class StripesPMI extends Configured implements Tool {
 
 
   private static final class SecondMapper extends Mapper<LongWritable, Text, Text, HMapStIW> {
-    //private static final HMapStIW MAP = new HMapStIW();
-    private static final Text KEY = new Text();
-    private static final Set<String> uniqueWords = new HashSet();
-    
 
     @Override
     public void setup(Context context) {
@@ -167,7 +163,7 @@ public class StripesPMI extends Configured implements Tool {
 
       for(int i=0; i < Math.min(tokens.size(), 40); i++){        
         HMapStIW MAP = new HMapStIW();        
-        KEY.set(tokens.get(i));
+        Text KEY = new TEXT(tokens.get(i));
         for(int j=0; j < Math.min(tokens.size(), 40); j++){
           
           if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
@@ -203,14 +199,10 @@ public class StripesPMI extends Configured implements Tool {
   }
 
   private static final class SecondReducer extends Reducer<Text, HMapStIW, Text, HashMapWritable> {    
-    private static final HashMapWritable OUTPUT_MAP_VALUE = new HashMapWritable();
+    
     private Map<String, Integer> singleWordCountMap = new HashMap<>();
     private int threshold = 1;
     private long number_of_lines = 1L;
-
-    private static final HMapStIW stripeMap = new HMapStIW();
-
-    private static final Text TEMPOUTPUT = new Text();
 
 
     @Override
@@ -249,12 +241,13 @@ public class StripesPMI extends Configured implements Tool {
         throws IOException, InterruptedException {
       Iterator<HMapStIW> iter = values.iterator();
       
-      stripeMap.clear();
+      HMapStIW stripeMap = new HMapStIW();
       while (iter.hasNext()) {
         stripeMap.plus(iter.next());
       }
 
-      OUTPUT_MAP_VALUE.clear();
+      
+      HashMapWritable OUTPUT_MAP_VALUE = new HashMapWritable();
 
       for(String yKey : stripeMap.keySet()){
 
