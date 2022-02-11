@@ -163,7 +163,7 @@ public class StripesPMI extends Configured implements Tool {
 
       for(int i=0; i < Math.min(tokens.size(), 40); i++){        
         HMapStIW MAP = new HMapStIW();        
-        Text KEY = new TEXT(tokens.get(i));
+        Text KEY = new Text(tokens.get(i));
         for(int j=0; j < Math.min(tokens.size(), 40); j++){
           
           if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
