@@ -150,7 +150,7 @@ public class StripesPMI extends Configured implements Tool {
 
 
   private static final class SecondMapper extends Mapper<LongWritable, Text, Text, HMapStIW> {
-    private static final HMapStIW MAP = new HMapStIW();
+    //private static final HMapStIW MAP = new HMapStIW();
     private static final Text KEY = new Text();
     private static final Set<String> uniqueWords = new HashSet();
     
@@ -166,7 +166,7 @@ public class StripesPMI extends Configured implements Tool {
       List<String> tokens = Tokenizer.tokenize(value.toString());
 
       for(int i=0; i < Math.min(tokens.size(), 40); i++){        
-        MAP.clear();	        
+        HMapStIW MAP = new HMapStIW();        
         KEY.set(tokens.get(i));
         for(int j=0; j < Math.min(tokens.size(), 40); j++){
           
@@ -178,7 +178,9 @@ public class StripesPMI extends Configured implements Tool {
             MAP.increment(tokens.get(j));
 
         }
-        context.write(KEY, MAP);  
+
+        if(MAP.size() > 0)
+          context.write(KEY, MAP);  
 
       }
 

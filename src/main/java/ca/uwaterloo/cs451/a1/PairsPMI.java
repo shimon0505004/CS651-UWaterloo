@@ -76,25 +76,22 @@ public class PairsPMI extends Configured implements Tool {
     // Reuse objects to save overhead of object creation.
     private static final IntWritable ONE = new IntWritable(1);
     private static final Text WORD = new Text();
-    private static final Set<String> wordSet = new HashSet();
     
-
-
     @Override
     public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
+			
+      Set<String> wordSet = new HashSet();
 
-      wordSet.clear();
+      List<String> words = Tokenizer.tokenize(value.toString());
 
-      for (String word : Tokenizer.tokenize(value.toString())) {
+      for (int i=0; i< Math.min(words.size(), 40); i++) {
+        String word = words.get(i);
         if(!wordSet.contains(word)){
           wordSet.add(word);
           WORD.set(word);
           context.write(WORD, ONE);
         }
-
-        if(wordSet.size() >= 40)   //First 40 words in each line, words need to be unique.
-          break;
       }
 
       context.getCounter(Job1LineCounter.LINE_COUNTER).increment(1L);
@@ -153,7 +150,6 @@ public class PairsPMI extends Configured implements Tool {
     private static final PairOfStrings KEYPAIR = new PairOfStrings();
     private static final IntWritable ONE = new IntWritable(1);
 
-    private static final Set<String> uniqueWords = new HashSet();
     private static final Set<String> uniquePairs = new HashSet();
 
     @Override
@@ -165,33 +161,18 @@ public class PairsPMI extends Configured implements Tool {
     public void map(LongWritable key, Text value, Context context)
         throws IOException, InterruptedException {
             
-      List<String> tokens = Tokenizer.tokenize(value.toString());
+      List<String> words = Tokenizer.tokenize(value.toString());
 
-      uniqueWords.clear();
       
-      int lastIndex = tokens.size() - 1;
-
-      for (int i=0; i< tokens.size(); i++) {
-        if(!uniqueWords.contains(tokens.get(i))){
-          uniqueWords.add(tokens.get(i));
-        }
-
-        if(uniqueWords.size() >= 40){   //First 40 words in each line, words need to be unique.
-          lastIndex = i;
-          break;
-        }
-      }    
-
       uniquePairs.clear();
-      for(int i=0; i <= lastIndex; i++){
-        
-        for(int j=0; j <= lastIndex; j++){
+      for(int i=0; i < Math.min(words.size(), 40); i++){        
+        for(int j=0; j < Math.min(words.size(), 40); j++){
           
-          if((i==j) || ((tokens.get(i).compareTo(tokens.get(j))) == 0)){
+          if((i==j) || ((words.get(i).compareTo(words.get(j))) == 0)){
             continue;
           }
 
-          KEYPAIR.set(tokens.get(i), tokens.get(j));
+          KEYPAIR.set(words.get(i), words.get(j));
 
           if(!uniquePairs.contains(KEYPAIR.toString())){
             uniquePairs.add(KEYPAIR.toString());                //Put keypair (A,B) in the set. (B,A) will also be put in the set
@@ -288,9 +269,6 @@ public class PairsPMI extends Configured implements Tool {
       if(c_X_Y >= threshold){
         float pmi_x_y = (float)(java.lang.Math.log10((1.0f * c_X_Y * number_of_lines) / (c_X * c_Y)));
         RESULT.set(pmi_x_y, c_X_Y);
-
-        //String output = "[PMI(x,y): "+ pmi_x_y +"c_x : " + c_X + " , c_y : " + c_Y + " , c_X_Y : " + c_X_Y + " , #ofLines: " + number_of_lines + "]";             
-        //TEMPOUTPUT.set(output);
         context.write(key, RESULT);
       }
 
