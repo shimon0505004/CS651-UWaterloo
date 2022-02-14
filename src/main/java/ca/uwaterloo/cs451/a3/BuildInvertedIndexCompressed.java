@@ -80,6 +80,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
   private static final class MyReducer extends
       Reducer<PairOfStringInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
     private static final IntWritable DF = new IntWritable();
+    private String previousTerm = null;
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
@@ -89,17 +90,26 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
       int df = 0;
       while (iter.hasNext()) {
+        df++;
+        DF.set(df);
+
+        if(key.getLeftElement() != previousTerm && previousTerm != null){
+          context.write(previousTerm, new PairOfWritables<>(DF, postings));
+        }
+
         PairOfInts docidTfPair = new PairOfInts(key.getRightElement(), iter.next().get());
         postings.add(docidTfPair);
-        df++;
+        previousTerm = key.getLeftElement();
+        
       }
 
-      // Sort the postings by docno ascending.
-      // Collections.sort(postings);
-
-      DF.set(df);
-      context.write(key, new PairOfWritables<>(DF, postings));
     }
+
+    @Override
+    public void cleanup(Context context) {
+      context.write(previousTerm, new PairOfWritables<>(DF, postings));
+    }
+
   }
 
   private BuildInvertedIndexCompressed() {}
