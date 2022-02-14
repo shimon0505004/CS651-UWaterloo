@@ -41,6 +41,7 @@ import tl.lin.data.fd.Object2IntFrequencyDistribution;
 import tl.lin.data.fd.Object2IntFrequencyDistributionEntry;
 import tl.lin.data.pair.PairOfInts;
 import tl.lin.data.pair.PairOfObjectInt;
+import tl.lin.data.pair.PairOfStringInt;
 import tl.lin.data.pair.PairOfWritables;
 
 import java.io.IOException;
@@ -51,8 +52,8 @@ import java.util.List;
 public class BuildInvertedIndexCompressed extends Configured implements Tool {
   private static final Logger LOG = Logger.getLogger(BuildInvertedIndexCompressed.class);
 
-  private static final class MyMapper extends Mapper<LongWritable, Text, Text, PairOfInts> {
-    private static final Text WORD = new Text();
+  private static final class MyMapper extends Mapper<LongWritable, Text, PairOfStringInt, IntWritable> {
+
     private static final Object2IntFrequencyDistribution<String> COUNTS =
         new Object2IntFrequencyDistributionEntry<>();
 
@@ -69,30 +70,32 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
       // Emit postings.
       for (PairOfObjectInt<String> e : COUNTS) {
-        WORD.set(e.getLeftElement());
-        context.write(WORD, new PairOfInts((int) docno.get(), e.getRightElement()));
+        IntWritable tfCount = new IntWritable(e.getRightElement());
+        PairOfStringInt wordDocidPair = new PairOfStringInt(e.getLeftElement(), ((int) docno.get()));
+        context.write(wordDocidPair, e.getRightElement());  
       }
     }
   }
 
   private static final class MyReducer extends
-      Reducer<Text, PairOfInts, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
+      Reducer<PairOfStringInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
     private static final IntWritable DF = new IntWritable();
 
     @Override
-    public void reduce(Text key, Iterable<PairOfInts> values, Context context)
+    public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
-      Iterator<PairOfInts> iter = values.iterator();
+      Iterator<IntWritable> iter = values.iterator();
       ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
 
       int df = 0;
       while (iter.hasNext()) {
-        postings.add(iter.next().clone());
+        PairOfInts docidTfPair = new PairOfInts(key.getRightElement(), iter.next().get());
+        postings.add(docidTfPair);
         df++;
       }
 
       // Sort the postings by docno ascending.
-      Collections.sort(postings);
+      // Collections.sort(postings);
 
       DF.set(df);
       context.write(key, new PairOfWritables<>(DF, postings));
