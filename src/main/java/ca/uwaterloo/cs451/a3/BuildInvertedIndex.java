@@ -95,7 +95,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       }
 
       // Sort the postings by docno ascending.
-      Collections.sort(postings);
+      // Collections.sort(postings);
 
       DF.set(df);
       context.write(key, new PairOfWritables<>(DF, postings));
