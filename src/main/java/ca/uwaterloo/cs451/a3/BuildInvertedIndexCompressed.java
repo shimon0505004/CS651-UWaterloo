@@ -89,6 +89,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
 
       int df = 0;
+      int previousKey = 0;
       while (iter.hasNext()) {
         df++;
         DF.set(df);
@@ -97,9 +98,12 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
           context.write(previousTerm, new PairOfWritables<>(DF, postings));
         }
 
-        PairOfInts docidTfPair = new PairOfInts(key.getRightElement(), iter.next().get());
+        int delta = (key.getRightElement() - previousKey);
+        
+        PairOfInts docidTfPair = new PairOfInts(delta, iter.next().get());
         postings.add(docidTfPair);
         previousTerm = key.getLeftElement();
+        previousKey = key.getRightElement();
         
       }
 
