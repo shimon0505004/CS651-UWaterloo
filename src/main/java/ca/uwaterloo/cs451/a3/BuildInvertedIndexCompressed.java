@@ -81,12 +81,12 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       Reducer<PairOfStringInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
     private static final IntWritable DF = new IntWritable();
     private String previousTerm = null;
+    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
       Iterator<IntWritable> iter = values.iterator();
-      ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
 
       int df = 0;
       int previousKey = 0;
@@ -99,7 +99,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
         }
 
         int delta = (key.getRightElement() - previousKey);
-        
+
         PairOfInts docidTfPair = new PairOfInts(delta, iter.next().get());
         postings.add(docidTfPair);
         previousTerm = key.getLeftElement();
