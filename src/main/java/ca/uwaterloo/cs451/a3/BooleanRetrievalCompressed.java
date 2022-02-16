@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.bespin.java.mapreduce.search;
+package ca.uwaterloo.cs451.a3;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.conf.Configured;
