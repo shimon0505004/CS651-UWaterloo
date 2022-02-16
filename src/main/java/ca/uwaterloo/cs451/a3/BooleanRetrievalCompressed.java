@@ -137,6 +137,7 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
     int idx = (term.hashCode() & Integer.MAX_VALUE) % numReduceTasks;  //Should be a value between 0 to indexFiles.length, should result in the index of the file where the query result should reside.
     indexFiles[idx].get(key, byteWritableValue);
 
+    /*
     //Well, this block should never be entered ideally. We are finding the potential index of the reducer part file where the posting for this terms would reside.
     //Basic assumption is that the filenames are sorted in order, and they are in that sorted order in the array of indexFiles.
     if(byteWritableValue == null){
@@ -147,6 +148,7 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
           break;  //We found the value
       }  
     }
+    */
 
     ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
 
