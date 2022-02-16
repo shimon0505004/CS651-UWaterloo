@@ -30,6 +30,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
+import org.apache.hadoop.mapreduce.lib.output.MapFileOutputFormat;
 import tl.lin.data.array.ArrayListWritable;
 import tl.lin.data.pair.PairOfInts;
 import tl.lin.data.pair.PairOfWritables;
@@ -42,14 +43,15 @@ import java.util.Stack;
 import java.util.TreeSet;
 
 public class BooleanRetrievalCompressed extends Configured implements Tool {
-  private MapFile.Reader index;
+  private MapFile.Reader[] indexFiles;
   private FSDataInputStream collection;
   private Stack<Set<Integer>> stack;
 
   private BooleanRetrievalCompressed() {}
 
   private void initialize(String indexPath, String collectionPath, FileSystem fs) throws IOException {
-    index = new MapFile.Reader(new Path(indexPath + "/part-r-00000"), fs.getConf());
+    indexFiles = MapFileOutputFormat.getReaders(new Path(indexPath), fs.getConf());   //Get MapFile Readers from all index files.
+
     collection = fs.open(new Path(collectionPath));
     stack = new Stack<>();
   }
@@ -118,18 +120,34 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
       set.add(pair.getLeftElement());
     }
 
+
+
+
     return set;
   }
 
-  private ArrayListWritable<PairOfInts> fetchPostings(String term) throws IOException {
+  private BytesWritable fetchPostings(String term) throws IOException {
     Text key = new Text();
-    PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>> value =
-        new PairOfWritables<>();
+    BytesWritable byteWritableValue = new BytesWritable();  
 
     key.set(term);
-    index.get(key, value);
 
-    return value.getRightElement();
+    int numReduceTasks = indexFiles.length;
+    int idx = (term.hashCode() & Integer.MAX_VALUE) % numReduceTasks;  //Should be a value between 0 to indexFiles.length, should result in the index of the file where the query result should reside.
+    indexFiles[idx].get(key, byteWritableValue);
+
+    //Well, this block should never be entered ideally. We are finding the potential index of the reducer part file where the posting for this terms would reside.
+    //Basic assumption is that the filenames are sorted in order, and they are in that sorted order in the array of indexFiles.
+    if(byteWritableValue == null){
+      for(MapFile.Reader indexFile : indexFiles){
+        indexFile.get(key, byteWritableValue);
+        
+        if(byteWritableValue != null)
+          break;  //We found the value
+      }  
+    }
+
+    return byteWritableValue;
   }
 
   public String fetchLine(long offset) throws IOException {

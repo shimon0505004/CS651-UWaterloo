@@ -170,9 +170,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
           context.write(previousTerm, new BytesWritable(byteArrayOutputStream.toByteArray()));
           byteArrayOutputStream.reset(); 
         }
-        
-        df = 0;                   //Reset the document frequency for setting up df for next term.
-        previousDocID = 0;        //For next term, previous document ID is set to zero so that we can reset the gap compression.
       }
 
       dataOutputStream.close();
