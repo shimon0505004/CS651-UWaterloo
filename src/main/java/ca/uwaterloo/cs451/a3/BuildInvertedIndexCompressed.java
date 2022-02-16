@@ -77,9 +77,9 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     }
   }
 
-  private static final class MyPartitioner extends Partitioner<PairOfStrings, IntWritable> {
+  private static final class MyPartitioner extends Partitioner<PairOfStringInt, IntWritable> {
     @Override
-    public int getPartition(PairOfStrings key, IntWritable value, int numReduceTasks) {
+    public int getPartition(PairOfStringInt key, IntWritable value, int numReduceTasks) {
       return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
     }
   }
@@ -175,6 +175,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     job.setOutputFormatClass(MapFileOutputFormat.class);
 
     job.setMapperClass(MyMapper.class);
+    job.setPartitionerClass(MyPartitioner.class);
     job.setReducerClass(MyReducer.class);
 
     // Delete the output directory if it exists already.
