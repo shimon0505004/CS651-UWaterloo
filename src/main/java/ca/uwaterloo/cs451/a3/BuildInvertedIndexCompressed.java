@@ -116,6 +116,8 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       if(!currentTerm.equals(previousTerm) && previousTerm != null){
         context.write(previousTerm, new BytesWritable(serializeToByteArray(df, postings)));
         postings.clear();
+        df = 0;
+        previousDocID = 0;
       }
 
       df++;
