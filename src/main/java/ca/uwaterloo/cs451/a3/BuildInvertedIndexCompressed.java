@@ -22,6 +22,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -86,10 +87,21 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
 
   private static final class MyReducer extends
-      Reducer<PairOfStringInt, IntWritable, Text, PairOfWritables<IntWritable, ArrayListWritable<PairOfInts>>> {
-    private static final IntWritable DF = new IntWritable();
+      Reducer<PairOfStringInt, IntWritable, Text, BytesWritable> {
+    
+    /**
+     * In BytesWritable value, Variable length integers are stored. The first integer is the size n, which indicates n pairs
+     * of vints stored in this BytesWritable object after the size.
+     */
+
+
     private String previousTerm = null;
-    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
+    private ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
+    
+    private ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+    private DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
+    
+    private int documentFrequencyForTerm = 0;
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
@@ -97,32 +109,51 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       Iterator<IntWritable> iter = values.iterator();
 
       int df = 0;
-      int previousKey = 0;
+      int previousDocID = 0;
       while (iter.hasNext()) {
         df++;
-        DF.set(df);
+        documentFrequencyForTerm = df;
 
         if(key.getLeftElement() != previousTerm && previousTerm != null){
-          context.write(previousTerm, new PairOfWritables<>(DF, postings));
+          context.write(previousTerm, new BytesWritable(serializeToByteArray(documentFrequencyForTerm, postings)));
+          postings.clear();
         }
 
-        int delta = (key.getRightElement() - previousKey);
-
-        PairOfInts docidTfPair = new PairOfInts(delta, iter.next().get());
+        int delta = (key.getRightElement() - previousDocID);
+        int tf = iter.next().get();
+        PairOfInts docidTfPair = new PairOfInts(delta, tf);
         postings.add(docidTfPair);
         previousTerm = key.getLeftElement();
-        previousKey = key.getRightElement();
-        
+        previousDocID = key.getRightElement();        
       }
 
     }
 
     @Override
     public void cleanup(Context context) {
-      if(previousTerm != null)
-        context.write(previousTerm, new PairOfWritables<>(DF, postings));
+      if(previousTerm != null){
+        serializeToDataOutputStream(dataOutputStream);
+        context.write(previousTerm, new BytesWritable(serializeToByteArray(documentFrequencyForTerm, postings)));
+        postings.clear();
+      }
+
+      dataOutputStream.close();
+      byteArrayOutputStream.close();
     }
 
+
+    private byte[] serializeToByteArray(int df, ArrayListWritable<PairOfInts> delta_tf_pairs){      
+      WritableUtils.writeVInt(out, df);   //Stream starts with a header of DF for per term. This means how many times are we going to run a loop to read pair of ints
+      for(PairOfInts delta_tf_pair : delta_tf_pairs){
+        WritableUtils.writeVInt(out, delta_tf_pair.getLeftElement());     //This is the delta - document ID
+        WritableUtils.writeVInt(out, delta_tf_pair.getRightElement());    //This is the term frequency
+      }
+      out.flush();          //Writes data in underlying bytearrayoutputstream.
+      Byte[] byteArrayToWrite = byteArrayOutputStream.toByteArray();
+      byteArrayOutputStream.reset();
+
+      return byteArrayToWrite;
+    }
   }
 
   private BuildInvertedIndexCompressed() {}
@@ -171,7 +202,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(PairOfInts.class);
     job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(PairOfWritables.class);
+    job.setOutputValueClass(BytesWritable.class);
     job.setOutputFormatClass(MapFileOutputFormat.class);
 
     job.setMapperClass(MyMapper.class);
