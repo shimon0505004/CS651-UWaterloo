@@ -128,10 +128,8 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
   }
 
   private ArrayListWritable<PairOfInts> fetchPostings(String term) throws IOException {
-    Text key = new Text();
+    Text key = new Text(term);
     BytesWritable byteWritableValue = new BytesWritable();  
-
-    key.set(term);
 
     int numReduceTasks = indexFiles.length;
     int idx = (term.hashCode() & Integer.MAX_VALUE) % numReduceTasks;  //Should be a value between 0 to indexFiles.length, should result in the index of the file where the query result should reside.
