@@ -111,7 +111,8 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
     @Override
     public void cleanup(Context context) {
-      context.write(previousTerm, new PairOfWritables<>(DF, postings));
+      if(previousTerm != null)
+        context.write(previousTerm, new PairOfWritables<>(DF, postings));
     }
 
   }
