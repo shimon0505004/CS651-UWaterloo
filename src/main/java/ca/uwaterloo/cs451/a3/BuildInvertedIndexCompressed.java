@@ -132,7 +132,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
           WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
           WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
           dataOutputStream.flush();
-          previousTermText.set(key);
+          previousTermText.set(previousTerm);
           context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
           byteArrayOutputStream.reset(); 
         }
@@ -159,7 +159,9 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     }
 
     @Override
-    public void cleanup(Context context) {
+    public void cleanup(Context context) 
+        throws IOException, InterruptedException {
+          
       if(previousTerm != null){
         if(df > 0){
 
@@ -174,7 +176,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
           WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
           WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
           dataOutputStream.flush();
-          previousTermText.set(key);
+          previousTermText.set(previousTerm);
           context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
           byteArrayOutputStream.reset(); 
         }
