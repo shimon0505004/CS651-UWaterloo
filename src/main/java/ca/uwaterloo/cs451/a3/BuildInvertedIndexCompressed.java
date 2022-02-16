@@ -118,24 +118,16 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       int currentDocID = key.getRightElement();
 
       if(!currentTerm.equals(previousTerm) && previousTerm != null){
-        //If document freqency is 0, then posting list will be empty and there is nothing to write. 
-        if(df > 0){
+        dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
+        byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
+        byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
 
-          //Extracting byteArray for the queue of pairs<delta, tf> and resetting the bytestream. 
-          //Doing this to put the document frequency in front of the final byteArray.
-          //In the final bytearray, the item will be sotred in a <vint, bytearray> fashion, the second item in the pair signifies a queue of <delta,tf> pairs.
-          //First item in <vint, bytearray> indicates how many pair of items will be read from the bytearray.
-          dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
-          byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
-          byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
-
-          WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
-          WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
-          dataOutputStream.flush();
-          previousTermText.set(previousTerm);
-          context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
-          byteArrayOutputStream.reset(); 
-        }
+        WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
+        WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
+        dataOutputStream.flush();
+        previousTermText.set(previousTerm);
+        context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
+        byteArrayOutputStream.reset(); 
         
         df = 0;                   //Reset the document frequency for setting up df for next term.
         previousDocID = 0;        //For next term, previous document ID is set to zero so that we can reset the gap compression.
@@ -163,8 +155,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
         throws IOException, InterruptedException {
 
       if(previousTerm != null){
-        if(df > 0){
-
           //Extracting byteArray for the queue of pairs<delta, tf> and resetting the bytestream. 
           //Doing this to put the document frequency in front of the final byteArray.
           //In the final bytearray, the item will be sotred in a <vint, bytearray> fashion, the second item in the pair signifies a queue of <delta,tf> pairs.
@@ -179,7 +169,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
           previousTermText.set(previousTerm);
           context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
           byteArrayOutputStream.reset(); 
-        }
       }
 
       dataOutputStream.close();
