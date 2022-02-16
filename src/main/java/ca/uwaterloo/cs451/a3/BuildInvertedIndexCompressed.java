@@ -92,10 +92,8 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     /**
      * In BytesWritable value, Variable length integers are stored. The first integer is the size n, which indicates n pairs
      * of vints stored in this BytesWritable object after the size.
+     * BytesWritable have a <VInt, ByteArray> pair. To read, call readVInt followedby readCompressedByteArray
      */
-
-
-    private ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
     
     private ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
     private DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
@@ -114,10 +112,26 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       int currentDocID = key.getRightElement();
 
       if(!currentTerm.equals(previousTerm) && previousTerm != null){
-        context.write(previousTerm, new BytesWritable(serializeToByteArray(df, postings)));
-        postings.clear();
-        df = 0;
-        previousDocID = 0;
+        //If document freqency is 0, then posting list will be empty and there is nothing to write. 
+        if(df > 0){
+
+          //Extracting byteArray for the queue of pairs<delta, tf> and resetting the bytestream. 
+          //Doing this to put the document frequency in front of the final byteArray.
+          //In the final bytearray, the item will be sotred in a <vint, bytearray> fashion, the second item in the pair signifies a queue of <delta,tf> pairs.
+          //First item in <vint, bytearray> indicates how many pair of items will be read from the bytearray.
+          dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
+          byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
+          byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
+
+          WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
+          WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
+          dataOutputStream.flush();
+          context.write(previousTerm, new BytesWritable(byteArrayOutputStream.toByteArray()));
+          byteArrayOutputStream.reset(); 
+        }
+        
+        df = 0;                   //Reset the document frequency for setting up df for next term.
+        previousDocID = 0;        //For next term, previous document ID is set to zero so that we can reset the gap compression.
       }
 
       df++;
@@ -128,8 +142,9 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
         tf += iter.next().get();
       }
 
-      PairOfInts docidTfPair = new PairOfInts(delta, tf);
-      postings.add(docidTfPair);
+      WritableUtils.writeVInt(dataOutputStream , delta);
+      WritableUtils.writeVInt(dataOutputStream , tf);
+
       previousTerm = currentTerm;
       previousDocID = currentDocID;
 
@@ -139,9 +154,25 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     @Override
     public void cleanup(Context context) {
       if(previousTerm != null){
-        serializeToDataOutputStream(dataOutputStream);
-        context.write(previousTerm, new BytesWritable(serializeToByteArray(documentFrequencyForTerm, postings)));
-        postings.clear();
+        if(df > 0){
+
+          //Extracting byteArray for the queue of pairs<delta, tf> and resetting the bytestream. 
+          //Doing this to put the document frequency in front of the final byteArray.
+          //In the final bytearray, the item will be sotred in a <vint, bytearray> fashion, the second item in the pair signifies a queue of <delta,tf> pairs.
+          //First item in <vint, bytearray> indicates how many pair of items will be read from the bytearray.
+          dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
+          byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
+          byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
+
+          WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
+          WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
+          dataOutputStream.flush();
+          context.write(previousTerm, new BytesWritable(byteArrayOutputStream.toByteArray()));
+          byteArrayOutputStream.reset(); 
+        }
+        
+        df = 0;                   //Reset the document frequency for setting up df for next term.
+        previousDocID = 0;        //For next term, previous document ID is set to zero so that we can reset the gap compression.
       }
 
       dataOutputStream.close();
@@ -149,18 +180,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     }
 
 
-    private byte[] serializeToByteArray(int df, ArrayListWritable<PairOfInts> delta_tf_pairs){      
-      WritableUtils.writeVInt(out, df);   //Stream starts with a header of DF for per term. This means how many times are we going to run a loop to read pair of ints
-      for(PairOfInts delta_tf_pair : delta_tf_pairs){
-        WritableUtils.writeVInt(out, delta_tf_pair.getLeftElement());     //This is the delta - document ID
-        WritableUtils.writeVInt(out, delta_tf_pair.getRightElement());    //This is the term frequency
-      }
-      out.flush();          //Writes data in underlying bytearrayoutputstream.
-      Byte[] byteArrayToWrite = byteArrayOutputStream.toByteArray();
-      byteArrayOutputStream.reset();
-
-      return byteArrayToWrite;
-    }
   }
 
   private BuildInvertedIndexCompressed() {}
