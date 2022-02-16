@@ -120,9 +120,6 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
       set.add(pair.getLeftElement());
     }
 
-
-
-
     return set;
   }
 
@@ -146,6 +143,9 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
           break;  //We found the value
       }  
     }
+
+    byte[] byteArray = fetchPostings(term);
+    ByteArrayInputStream byteInputStream = new ByteArrayInputStream(fetchPostings(term));
 
     return byteWritableValue;
   }
