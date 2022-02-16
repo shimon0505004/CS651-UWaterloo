@@ -161,7 +161,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     @Override
     public void cleanup(Context context) 
         throws IOException, InterruptedException {
-          
+
       if(previousTerm != null){
         if(df > 0){
 
@@ -232,8 +232,8 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     FileInputFormat.setInputPaths(job, new Path(args.input));
     FileOutputFormat.setOutputPath(job, new Path(args.output));
 
-    job.setMapOutputKeyClass(Text.class);
-    job.setMapOutputValueClass(PairOfInts.class);
+    job.setMapOutputKeyClass(PairOfStringInt.class);
+    job.setMapOutputValueClass(IntWritable.class);
     job.setOutputKeyClass(Text.class);
     job.setOutputValueClass(BytesWritable.class);
     job.setOutputFormatClass(MapFileOutputFormat.class);
