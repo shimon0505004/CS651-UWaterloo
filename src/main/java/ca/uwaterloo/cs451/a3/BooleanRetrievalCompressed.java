@@ -24,6 +24,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.MapFile;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.kohsuke.args4j.CmdLineException;
@@ -38,6 +39,8 @@ import tl.lin.data.pair.PairOfWritables;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.DataInputStream;
+import java.io.ByteArrayInputStream;
 import java.util.Set;
 import java.util.Stack;
 import java.util.TreeSet;
@@ -123,7 +126,7 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
     return set;
   }
 
-  private BytesWritable fetchPostings(String term) throws IOException {
+  private ArrayListWritable<PairOfInts> fetchPostings(String term) throws IOException {
     Text key = new Text();
     BytesWritable byteWritableValue = new BytesWritable();  
 
@@ -144,10 +147,27 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
       }  
     }
 
-    byte[] byteArray = fetchPostings(term);
-    ByteArrayInputStream byteInputStream = new ByteArrayInputStream(fetchPostings(term));
+    DataInputStream dataInputStream = new DataInputStream(new ByteArrayInputStream(byteWritableValue.getBytes()));
+    int df = WritableUtils.readVInt(dataInputStream);                //This is the first item in dataInputStream.
 
-    return byteWritableValue;
+    DataInputStream dataInputStreamForPairs = new DataInputStream(new ByteArrayInputStream(WritableUtils.readCompressedByteArray(dataInputStream)));
+    
+    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
+
+    int previousDocID = 0;
+    for(int index=0; index < df; index++){
+      int delta = WritableUtils.readVInt(dataInputStreamForPairs);    //Reading first item in the pair, which is the delta of docID. 
+      int currentDocID = previousDocID + delta;                       //Recreating docID from delta.
+      int tf = WritableUtils.readVInt(dataInputStreamForPairs);       //Reading second item in the pair, which is the term frequency. 
+
+      postings.add(new PairOfInts(delta, tf));
+      previousDocID = currentDocID;
+    }
+
+    dataInputStream.close();
+    dataInputStreamForPairs.close();
+
+    return postings;
   }
 
   public String fetchLine(long offset) throws IOException {
