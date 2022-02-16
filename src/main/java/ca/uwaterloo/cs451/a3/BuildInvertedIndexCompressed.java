@@ -73,7 +73,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       for (PairOfObjectInt<String> e : COUNTS) {
         IntWritable tfCount = new IntWritable(e.getRightElement());
         PairOfStringInt wordDocidPair = new PairOfStringInt(e.getLeftElement(), ((int) docno.get()));
-        context.write(wordDocidPair, e.getRightElement());  
+        context.write(wordDocidPair, tfCount);  
       }
     }
   }
@@ -95,37 +95,42 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
      */
 
 
-    private String previousTerm = null;
     private ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
     
     private ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
     private DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
-    
-    private int documentFrequencyForTerm = 0;
+
+    private String previousTerm = null;
+    private int df = 0;
+    private int previousDocID = 0;
+
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
         throws IOException, InterruptedException {
       Iterator<IntWritable> iter = values.iterator();
+           
+      String currentTerm = key.getLeftElement();
+      int currentDocID = key.getRightElement();
 
-      int df = 0;
-      int previousDocID = 0;
-      while (iter.hasNext()) {
-        df++;
-        documentFrequencyForTerm = df;
-
-        if(key.getLeftElement() != previousTerm && previousTerm != null){
-          context.write(previousTerm, new BytesWritable(serializeToByteArray(documentFrequencyForTerm, postings)));
-          postings.clear();
-        }
-
-        int delta = (key.getRightElement() - previousDocID);
-        int tf = iter.next().get();
-        PairOfInts docidTfPair = new PairOfInts(delta, tf);
-        postings.add(docidTfPair);
-        previousTerm = key.getLeftElement();
-        previousDocID = key.getRightElement();        
+      if(!currentTerm.equals(previousTerm) && previousTerm != null){
+        context.write(previousTerm, new BytesWritable(serializeToByteArray(df, postings)));
+        postings.clear();
       }
+
+      df++;
+      
+      int delta = (currentDocID - previousDocID);
+      int tf = 0 ;
+      while(iter.hasNext()){
+        tf += iter.next().get();
+      }
+
+      PairOfInts docidTfPair = new PairOfInts(delta, tf);
+      postings.add(docidTfPair);
+      previousTerm = currentTerm;
+      previousDocID = currentDocID;
+
 
     }
 
