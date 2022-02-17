@@ -107,7 +107,8 @@ public class BuildInvertedIndexCompressed2 extends Configured implements Tool {
     private int df = 0;
     private int previousDocID = 0;
     private Text previousTermText = new Text();
-
+    
+    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
@@ -118,12 +119,13 @@ public class BuildInvertedIndexCompressed2 extends Configured implements Tool {
       int currentDocID = key.getRightElement();
 
       if(!currentTerm.equals(previousTerm) && previousTerm != null){
-        dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
-        byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
-        byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
-
         WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
-        WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
+        for(PairOfInts posting: postings){
+          WritableUtils.writeVInt(dataOutputStream, posting.getLeftElement());
+          WritableUtils.writeVInt(dataOutputStream, posting.getRightElement());
+        }
+        postings.clear();
+
         dataOutputStream.flush();
         previousTermText.set(previousTerm);
         context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
@@ -141,35 +143,27 @@ public class BuildInvertedIndexCompressed2 extends Configured implements Tool {
         tf += iter.next().get();
       }
 
-      WritableUtils.writeVInt(dataOutputStream , delta);
-      WritableUtils.writeVInt(dataOutputStream , tf);
+      postings.add(new PairOfInts(delta, tf));
 
       previousTerm = currentTerm;
       previousDocID = currentDocID;
-
-
     }
 
     @Override
     public void cleanup(Context context) 
         throws IOException, InterruptedException {
 
-      if(previousTerm != null){
-          //Extracting byteArray for the queue of pairs<delta, tf> and resetting the bytestream. 
-          //Doing this to put the document frequency in front of the final byteArray.
-          //In the final bytearray, the item will be sotred in a <vint, bytearray> fashion, the second item in the pair signifies a queue of <delta,tf> pairs.
-          //First item in <vint, bytearray> indicates how many pair of items will be read from the bytearray.
-          dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
-          byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
-          byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
-
-          WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
-          WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
-          dataOutputStream.flush();
-          previousTermText.set(previousTerm);
-          context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
-          byteArrayOutputStream.reset(); 
+      WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
+      for(PairOfInts posting: postings){
+        WritableUtils.writeVInt(dataOutputStream, posting.getLeftElement());
+        WritableUtils.writeVInt(dataOutputStream, posting.getRightElement());
       }
+      postings.clear();
+
+      dataOutputStream.flush();
+      previousTermText.set(previousTerm);
+      context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
+      byteArrayOutputStream.reset(); 
 
       dataOutputStream.close();
       byteArrayOutputStream.close();

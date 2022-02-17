@@ -127,6 +127,7 @@ public class BooleanRetrievalCompressed2 extends Configured implements Tool {
     return set;
   }
 
+  
   private ArrayListWritable<PairOfInts> fetchPostings(String term) throws IOException {
     Text key = new Text(term);
     BytesWritable byteWritableValue = new BytesWritable();  
@@ -136,42 +137,25 @@ public class BooleanRetrievalCompressed2 extends Configured implements Tool {
     int idx = (term.hashCode() & Integer.MAX_VALUE) % numReduceTasks;  //Should be a value between 0 to indexFiles.length, should result in the index of the file where the query result should reside.
     indexFiles[idx].get(key, byteWritableValue);
     
-    
-    //Well, this block should never be entered ideally. We are finding the potential index of the reducer part file where the posting for this terms would reside.
-    //Basic assumption is that the filenames are sorted in order, and they are in that sorted order in the array of indexFiles.
-    /*
-    for(MapFile.Reader indexFile : indexFiles){
-      indexFile.get(key, byteWritableValue);
-      
-      if(byteWritableValue != null)
-        break;  //We found the value
-    } 
-    */
-
     ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
+    DataInputStream dataInputStream = new DataInputStream(new ByteArrayInputStream(byteWritableValue.getBytes()));
+    int df = WritableUtils.readVInt(dataInputStream);                //This is the first item in dataInputStream.
 
-    if(byteWritableValue != null){
-      DataInputStream dataInputStream = new DataInputStream(new ByteArrayInputStream(byteWritableValue.getBytes()));
-      int df = WritableUtils.readVInt(dataInputStream);                //This is the first item in dataInputStream.
-  
-      DataInputStream dataInputStreamForPairs = new DataInputStream(new ByteArrayInputStream(WritableUtils.readCompressedByteArray(dataInputStream)));
-      
-      int previousDocID = 0;
-      for(int index=0; index < df; index++){
-        int delta = WritableUtils.readVInt(dataInputStreamForPairs);    //Reading first item in the pair, which is the delta of docID. 
-        int currentDocID = previousDocID + delta;                       //Recreating docID from delta.
-        int tf = WritableUtils.readVInt(dataInputStreamForPairs);       //Reading second item in the pair, which is the term frequency. 
-  
-        postings.add(new PairOfInts(currentDocID, tf));
-        previousDocID = currentDocID;
-      }
-  
-      dataInputStream.close();
-      dataInputStreamForPairs.close();  
+    int previousDocID = 0;
+    for(int index=0; index < df; index++){
+      int delta = WritableUtils.readVInt(dataInputStream);    //Reading first item in the pair, which is the delta of docID. 
+      int currentDocID = previousDocID + delta;                       //Recreating docID from delta.
+      int tf = WritableUtils.readVInt(dataInputStream);       //Reading second item in the pair, which is the term frequency. 
+
+      postings.add(new PairOfInts(currentDocID, tf));
+      previousDocID = currentDocID;
     }
+
+    dataInputStream.close();
 
     return postings;
   }
+
 
   public String fetchLine(long offset) throws IOException {
     collection.seek(offset);
