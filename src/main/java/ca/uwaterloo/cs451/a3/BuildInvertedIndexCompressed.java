@@ -55,8 +55,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 
 
-public class BuildInvertedIndexCompressed extends Configured implements Tool {
-  private static final Logger LOG = Logger.getLogger(BuildInvertedIndexCompressed.class);
+public class BooleanRetrievalCompressed extends Configured implements Tool {
+  private static final Logger LOG = Logger.getLogger(BooleanRetrievalCompressed.class);
 
   private static final class MyMapper extends Mapper<LongWritable, Text, PairOfStringInt, IntWritable> {
 
@@ -107,7 +107,8 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     private int df = 0;
     private int previousDocID = 0;
     private Text previousTermText = new Text();
-
+    
+    ArrayListWritable<PairOfInts> postings = new ArrayListWritable<>();
 
     @Override
     public void reduce(PairOfStringInt key, Iterable<IntWritable> values, Context context)
@@ -118,12 +119,13 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       int currentDocID = key.getRightElement();
 
       if(!currentTerm.equals(previousTerm) && previousTerm != null){
-        dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
-        byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
-        byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
-
         WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
-        WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
+        for(PairOfInts posting: postings){
+          WritableUtils.writeVInt(dataOutputStream, posting.getLeftElement());
+          WritableUtils.writeVInt(dataOutputStream, posting.getRightElement());
+        }
+        postings.clear();
+
         dataOutputStream.flush();
         previousTermText.set(previousTerm);
         context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
@@ -141,35 +143,27 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
         tf += iter.next().get();
       }
 
-      WritableUtils.writeVInt(dataOutputStream , delta);
-      WritableUtils.writeVInt(dataOutputStream , tf);
+      postings.add(new PairOfInts(delta, tf));
 
       previousTerm = currentTerm;
       previousDocID = currentDocID;
-
-
     }
 
     @Override
     public void cleanup(Context context) 
         throws IOException, InterruptedException {
 
-      if(previousTerm != null){
-          //Extracting byteArray for the queue of pairs<delta, tf> and resetting the bytestream. 
-          //Doing this to put the document frequency in front of the final byteArray.
-          //In the final bytearray, the item will be sotred in a <vint, bytearray> fashion, the second item in the pair signifies a queue of <delta,tf> pairs.
-          //First item in <vint, bytearray> indicates how many pair of items will be read from the bytearray.
-          dataOutputStream.flush();                                                     //Flush the pairs to underlying bytearray stream. 
-          byte[] compressedDeltaTFPairArray = byteArrayOutputStream.toByteArray();      //Extract the bytearray from the stream and clear the stream.
-          byteArrayOutputStream.reset();                                                //At this point, the DataOutputStream and ByteArrayOutputStream should be reset.
-
-          WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
-          WritableUtils.writeCompressedByteArray(dataOutputStream, compressedDeltaTFPairArray);  //Putting compressed <delta, TF> pairs after the document frequency.
-          dataOutputStream.flush();
-          previousTermText.set(previousTerm);
-          context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
-          byteArrayOutputStream.reset(); 
+      WritableUtils.writeVInt(dataOutputStream, df);                                //Putting document frequency in front of the bytestream
+      for(PairOfInts posting: postings){
+        WritableUtils.writeVInt(dataOutputStream, posting.getLeftElement());
+        WritableUtils.writeVInt(dataOutputStream, posting.getRightElement());
       }
+      postings.clear();
+
+      dataOutputStream.flush();
+      previousTermText.set(previousTerm);
+      context.write(previousTermText, new BytesWritable(byteArrayOutputStream.toByteArray()));
+      byteArrayOutputStream.reset(); 
 
       dataOutputStream.close();
       byteArrayOutputStream.close();
@@ -178,7 +172,7 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
 
   }
 
-  private BuildInvertedIndexCompressed() {}
+  private BooleanRetrievalCompressed() {}
 
   private static final class Args {
     @Option(name = "-input", metaVar = "[path]", required = true, usage = "input path")
@@ -207,14 +201,14 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
       return -1;
     }
 
-    LOG.info("Tool: " + BuildInvertedIndexCompressed.class.getSimpleName());
+    LOG.info("Tool: " + BooleanRetrievalCompressed.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
     LOG.info(" - number of reducers: " + args.numReducers);
 
     Job job = Job.getInstance(getConf());
-    job.setJobName(BuildInvertedIndexCompressed.class.getSimpleName());
-    job.setJarByClass(BuildInvertedIndexCompressed.class);
+    job.setJobName(BooleanRetrievalCompressed.class.getSimpleName());
+    job.setJarByClass(BooleanRetrievalCompressed.class);
 
     job.setNumReduceTasks(args.numReducers);
 
@@ -249,6 +243,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
    * @throws Exception if tool encounters an exception
    */
   public static void main(String[] args) throws Exception {
-    ToolRunner.run(new BuildInvertedIndexCompressed(), args);
+    ToolRunner.run(new BooleanRetrievalCompressed(), args);
   }
 }
