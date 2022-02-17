@@ -55,8 +55,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 
 
-public class BooleanRetrievalCompressed extends Configured implements Tool {
-  private static final Logger LOG = Logger.getLogger(BooleanRetrievalCompressed.class);
+public class BuildInvertedIndexCompressed extends Configured implements Tool {
+  private static final Logger LOG = Logger.getLogger(BuildInvertedIndexCompressed.class);
 
   private static final class MyMapper extends Mapper<LongWritable, Text, PairOfStringInt, IntWritable> {
 
@@ -172,7 +172,7 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
 
   }
 
-  private BooleanRetrievalCompressed() {}
+  private BuildInvertedIndexCompressed() {}
 
   private static final class Args {
     @Option(name = "-input", metaVar = "[path]", required = true, usage = "input path")
@@ -201,14 +201,14 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
       return -1;
     }
 
-    LOG.info("Tool: " + BooleanRetrievalCompressed.class.getSimpleName());
+    LOG.info("Tool: " + BuildInvertedIndexCompressed.class.getSimpleName());
     LOG.info(" - input path: " + args.input);
     LOG.info(" - output path: " + args.output);
     LOG.info(" - number of reducers: " + args.numReducers);
 
     Job job = Job.getInstance(getConf());
-    job.setJobName(BooleanRetrievalCompressed.class.getSimpleName());
-    job.setJarByClass(BooleanRetrievalCompressed.class);
+    job.setJobName(BuildInvertedIndexCompressed.class.getSimpleName());
+    job.setJarByClass(BuildInvertedIndexCompressed.class);
 
     job.setNumReduceTasks(args.numReducers);
 
@@ -243,6 +243,6 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
    * @throws Exception if tool encounters an exception
    */
   public static void main(String[] args) throws Exception {
-    ToolRunner.run(new BooleanRetrievalCompressed(), args);
+    ToolRunner.run(new BuildInvertedIndexCompressed(), args);
   }
 }
