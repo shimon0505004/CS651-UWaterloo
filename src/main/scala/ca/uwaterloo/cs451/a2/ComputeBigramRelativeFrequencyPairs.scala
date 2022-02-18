@@ -32,7 +32,7 @@ class Conf(args: Seq[String]) extends ScallopConf(args) {
   verify()
 }
 
-object BigramCount extends Tokenizer {
+object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
