@@ -29,6 +29,7 @@ class Conf(args: Seq[String]) extends ScallopConf(args) {
   val input = opt[String](descr = "input path", required = true)
   val output = opt[String](descr = "output path", required = true)
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
+  val textOutput = opt[Boolean](descr = "use TextOutputFormat (otherwise, SequenceFileOutputFormat)", required = false, default = Some(false))
   verify()
 }
 
@@ -41,8 +42,9 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
     log.info("Input: " + args.input())
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
+    log.info("Text output: " + args.textOutput())
 
-    val conf = new SparkConf().setAppName("Bigram Count")
+    val conf = new SparkConf().setAppName("Compute Bigram Relative Frequency Stripes")
     val sc = new SparkContext(conf)
 
     val outputDir = new Path(args.output())
@@ -56,6 +58,12 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
       })
       .map(bigram => (bigram, 1))
       .reduceByKey(_ + _)
-    counts.saveAsTextFile(args.output())
+    
+    if(args.textOutput()){
+      counts.saveAsTextFile(args.output())
+    }else{
+      counts.saveAsObjectFile(args.output())
+    }
+
   }
 }
