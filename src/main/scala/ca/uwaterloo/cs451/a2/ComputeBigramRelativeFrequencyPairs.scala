@@ -54,10 +54,11 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
     val counts = textFile
       .flatMap(line => {
         val tokens = tokenize(line)
-        if (tokens.length > 1) tokens.sliding(2).map(p => p.mkString(" ")).toList else List()
+        if (tokens.length > 1) List.concat(tokens.sliding(2).map(p => p.mkString(",")).toList, tokens.map(p => p + ", *").toList) else List()
       })
       .map(bigram => (bigram, 1))
       .reduceByKey(_ + _)
+      .sortByKey()
 
     if(args.textOutput()){
       counts.saveAsTextFile(args.output())
