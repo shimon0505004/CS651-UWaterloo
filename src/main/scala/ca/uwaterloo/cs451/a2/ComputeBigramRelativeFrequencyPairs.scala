@@ -64,9 +64,9 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
         if(count._1.endsWith(",*")) 
           sum = count._2
 
-        (count._1, ((count._2*1.0)/sum))
+        ("("+count._1+")", ((count._2*1.0)/sum))
         })
-      .filter(relativeFreq => !relativeFreq._1.endsWith(",*") )
+      
     
     
 
