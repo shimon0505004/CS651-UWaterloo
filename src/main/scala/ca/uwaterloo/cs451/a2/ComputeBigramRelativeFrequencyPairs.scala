@@ -29,7 +29,7 @@ class PairsConf(args: Seq[String]) extends ScallopConf(args) {
   val input = opt[String](descr = "input path", required = true)
   val output = opt[String](descr = "output path", required = true)
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
-  val textOutput = opt[Boolean](descr = "use TextOutputFormat (otherwise, SequenceFileOutputFormat)", required = false, default = Some(false))
+  val textOutput = opt[Boolean](descr = "use TextOutputFormat (otherwise, SequenceFileOutputFormat)", required = false, default = Some(true))
   verify()
 }
 
@@ -51,14 +51,24 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
 
     val textFile = sc.textFile(args.input())
+    var sum = 1
     val counts = textFile
       .flatMap(line => {
         val tokens = tokenize(line)
-        if (tokens.length > 1) List.concat(tokens.sliding(2).map(p => p.mkString(",")).toList, tokens.map(p => p + ", *").toList) else List()
+        if (tokens.length > 1) tokens.sliding(2).map(p => p.mkString(",")).flatMap(p => List(p, p.split(",")(0)+",*")).toList else List()
       })
       .map(bigram => (bigram, 1))
       .reduceByKey(_ + _)
       .sortByKey()
+      .map(count => {
+        if(count._1.endsWith(",*")) 
+          sum = count._2
+
+        (count._1, ((count._2*1.0)/sum))
+        })
+      .filter(relativeFreq => !relativeFreq._1.endsWith(",*") )
+    
+    
 
     if(args.textOutput()){
       counts.saveAsTextFile(args.output())
