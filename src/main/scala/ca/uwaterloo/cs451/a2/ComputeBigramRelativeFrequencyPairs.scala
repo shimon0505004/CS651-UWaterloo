@@ -58,7 +58,7 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
         if (tokens.length > 1) tokens.sliding(2).map(p => p.mkString(",")).flatMap(p => List(p, p.split(",")(0)+",*")).toList else List()
       })
       .map(bigram => (bigram, 1))
-      .reduceByKey(_ + _)
+      .reduceByKey(_ + _, args.reducers())
       .sortByKey()
       .map(count => {
         if(count._1.endsWith(",*")){
