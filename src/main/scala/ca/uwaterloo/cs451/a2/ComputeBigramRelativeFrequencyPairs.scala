@@ -61,10 +61,12 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
       .reduceByKey(_ + _)
       .sortByKey()
       .map(count => {
-        if(count._1.endsWith(",*")) 
+        if(count._1.endsWith(",*")){
           sum = count._2
-
-        ("("+count._1+")", ((count._2*1.0)/sum))
+          ("("+count._1+")", ((count._2*1.0f)))
+        }else{
+          ("("+count._1+")", ((count._2*1.0f)/sum))
+        } 
         })
       
     
