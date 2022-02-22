@@ -49,13 +49,28 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
 
     val textFile = sc.textFile(args.input())
+
+    val stripes = 
     val counts = textFile
       .flatMap(line => {
         val tokens = tokenize(line)
-        if (tokens.length > 1) tokens.sliding(2).map(p => p.mkString(" ")).toList else List()
+
+        if (tokens.length > 1) tokens.sliding(2).map(p => {
+          val slidingList = p.toList
+          val key = slidingList.head
+          val value = slidingList.tail
+          (key, Map(value -> 1.0f))
+        }).toList else List()
       })
-      .map(bigram => (bigram, 1))
-      .reduceByKey(_ + _)
+      .reduceByKey((map1, map2) => {
+        var mergedMap = map1.clone
+        for(var map2Key <- map2.keys){
+          var updatedValue = mergedMap.getOrElse(map2Key, 0.0f)
+          updatedValue += map2.getOrElse(map2Key, 0.0f)
+          mergedMap += (map2Key -> updatedValue )
+        }
+        mergedMap
+      })
     
     counts.saveAsTextFile(args.output())
 
