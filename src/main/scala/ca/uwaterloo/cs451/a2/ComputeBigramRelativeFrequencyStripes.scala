@@ -62,14 +62,28 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
         }).toList else List()
       })
       .reduceByKey((map1, map2) => {
-        var mergedMap = map1.clone()
         var map2Key = 0.0f
         for(map2Key <- map2.keys){
-          var updatedValue = mergedMap.getOrElse(map2Key, 0.0f)
+          var updatedValue = map1.getOrElse(map2Key, 0.0f)
           updatedValue += map2.getOrElse(map2Key, 0.0f)
-          mergedMap += (map2Key -> updatedValue )
+          map1 += (map2Key -> updatedValue )
         }
-        mergedMap
+        map1
+      }, args.reducers())
+      .map(p => {
+        val key = p._1
+        var mapValue = p._2
+
+        var sum = 0.0f
+        for((k, v) <- mapValue){
+          sum += v
+        }
+
+        for((k, v) <- mapValue){
+          mapValue(k) = (v/sum)
+        }
+
+        (key, mapValue)
       })
     
     counts.saveAsTextFile(args.output())
