@@ -26,10 +26,12 @@ import org.rogach.scallop._
 
 class PairsConf(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, output, reducers, textOutput)
-  val input = opt[String](descr = "input path", required = true)
-  val output = opt[String](descr = "output path", required = true)
-  val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
-  val textOutput = opt[Boolean](descr = "use TextOutputFormat (otherwise, SequenceFileOutputFormat)", required = false, default = Some(true))
+  val input = opt[String]("input", descr = "input path", required = true)
+  val output = opt[String]("output", descr = "output path", required = true)
+  val reducers = opt[Int]("reducers", descr = "number of reducers", required = false, default = Some(1))
+  val textOutput = opt[Boolean]("textOutput", descr = "use TextOutputFormat (otherwise, SequenceFileOutputFormat)", required = false, default = Some(true))
+  val executors = opt[Int]("num-executors", descr = "number of executors", required = false, default = Some(1))
+  val executorCores = opt[Int]("executor-cores", descr = "number of executor cores", required = false, default = Some(1))
   verify()
 }
 
