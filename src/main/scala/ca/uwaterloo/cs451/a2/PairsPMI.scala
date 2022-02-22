@@ -48,39 +48,43 @@ object PairsPMI extends Tokenizer {
 
     val conf = new SparkConf().setAppName("Compute Pairs PMI")
     val sc = new SparkContext(conf)
+    val threshold = args.threshold()
 
     val outputDir = new Path(args.output())
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
 
     val textFile = sc.textFile(args.input())
 
-    var numberOfLines = 0
+    var numberOfLines = textFile.count()
     val uniqueWordCounts = textFile
       .flatMap(line => {
-        numberOfLines +=1
         var uniquetokens: Set[String] = Set()
-        tokenize(line).foreach(uniquetokens += _)
+        tokenize(line).take(40).foreach(uniquetokens += _)
 
         if (uniquetokens.size > 1) uniquetokens.toList else List()
       })
       .map(token => (token, 1))
       .reduceByKey(_ + _, args.reducers())
+      .collectAsMap()
 
+    val broadcastVar = sc.broadcast(uniqueWordCounts)
 
     val uniquePairCounts = textFile
       .flatMap(line =>{
         var uniquetokens: Set[String] = Set()
-        tokenize(line).foreach(uniquetokens += _)
+        tokenize(line).take(40).foreach(uniquetokens += _)
 
-        if (uniquetokens.size > 1) uniquetokens.toList.combinations(2).toList.flatMap(p => p.permutations.toList).map(l => (l.head, l.last)).toList else List()
+        if (uniquetokens.size > 1)uniquetokens.toList.combinations(2).toList.flatMap(p => p.permutations.toList).map(l => (l.head, l.last)).toList else List()
       })
       .map(token => (token, 1))
       .reduceByKey(_ + _, args.reducers())
+      .filter(p => p._2 >= threshold)
+      .sortByKey()
       .map(p =>{
         val key = p._1
         val c_x_y = p._2
-        val c_x = uniqueWordCounts.lookup(key._1)(0)      
-        val c_y = uniqueWordCounts.lookup(key._2)(0)
+        val c_x = broadcastVar.value.get(key._1).get      
+        val c_y = broadcastVar.value.get(key._2).get
         val pmi = log10(c_x_y * 1.0 * numberOfLines / (c_x * c_y))
         (key, (pmi.toFloat, c_x_y))
       })
