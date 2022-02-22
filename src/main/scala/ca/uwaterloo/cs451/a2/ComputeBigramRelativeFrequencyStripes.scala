@@ -50,7 +50,6 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
 
     val textFile = sc.textFile(args.input())
 
-    val stripes = 
     val counts = textFile
       .flatMap(line => {
         val tokens = tokenize(line)
@@ -58,13 +57,14 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
         if (tokens.length > 1) tokens.sliding(2).map(p => {
           val slidingList = p.toList
           val key = slidingList.head
-          val value = slidingList.tail
-          (key, Map(value -> 1.0f))
+          val value = slidingList.last
+          (key, scala.collection.mutable.Map(value -> 1.0f))
         }).toList else List()
       })
       .reduceByKey((map1, map2) => {
-        var mergedMap = map1.clone
-        for(var map2Key <- map2.keys){
+        var mergedMap = map1.clone()
+        var map2Key = 0.0f
+        for(map2Key <- map2.keys){
           var updatedValue = mergedMap.getOrElse(map2Key, 0.0f)
           updatedValue += map2.getOrElse(map2Key, 0.0f)
           mergedMap += (map2Key -> updatedValue )
