@@ -74,12 +74,25 @@ object PairsPMI extends Tokenizer {
     counts.saveAsTextFile(args.output())
     */
 
+    var numberOfLines = 0
     val uniqueWordCounts = textFile
       .flatMap(line => {
-        val uniquetokens = Set(tokenize(line))
-        uniquetokens.flatMap(token => (token, 1))
+        numberOfLines +=1
+        var uniquetokens: Set[String] = Set()
+        tokenize(line).foreach(uniquetokens += _)
+
+        if (uniquetokens.size > 1) uniquetokens.toList else List()
       })
+      .map(token => (token, 1))
       .reduceByKey(_ + _, args.reducers())
+
+    val uniquePairCounts = textFile
+      .flatMap(line =>{
+        var uniquetokens: Set[String] = Set()
+        tokenize(line).foreach(uniquetokens += _)
+
+        if (uniquetokens.size > 1) uniquetokens.combinations(2).toList.permutations else List()
+      })
 
     uniqueWordCounts.saveAsTextFile(args.output())
 
