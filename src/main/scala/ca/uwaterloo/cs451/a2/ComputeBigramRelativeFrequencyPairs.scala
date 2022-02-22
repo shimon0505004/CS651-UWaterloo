@@ -25,13 +25,10 @@ import org.apache.spark.SparkConf
 import org.rogach.scallop._
 
 class PairsConf(args: Seq[String]) extends ScallopConf(args) {
-  mainOptions = Seq(input, output, reducers, textOutput)
+  mainOptions = Seq(input, output, reducers)
   val input = opt[String]("input", descr = "input path", required = true)
   val output = opt[String]("output", descr = "output path", required = true)
   val reducers = opt[Int]("reducers", descr = "number of reducers", required = false, default = Some(1))
-  val textOutput = opt[Boolean]("textOutput", descr = "use TextOutputFormat (otherwise, SequenceFileOutputFormat)", required = false, default = Some(true))
-  val executors = opt[Int]("num-executors", descr = "number of executors", required = false, default = Some(1))
-  val executorCores = opt[Int]("executor-cores", descr = "number of executor cores", required = false, default = Some(1))
   verify()
 }
 
@@ -44,7 +41,6 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
     log.info("Input: " + args.input())
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
-    log.info("Text output: " + args.textOutput())
 
     val conf = new SparkConf().setAppName("Compute Bigram Relative Frequency Pairs")
     val sc = new SparkContext(conf)
@@ -71,15 +67,7 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
         } 
         })
       
-    
-    
+    counts.saveAsTextFile(args.output())
 
-    if(args.textOutput()){
-      counts.saveAsTextFile(args.output())
-    }else{
-      counts.saveAsObjectFile(args.output())
-    }
-
-    	
   }
 }
