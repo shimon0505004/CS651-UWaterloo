@@ -24,6 +24,8 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
 
+import math._
+
 class PairsPMIConf(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, output, reducers, threshold)
   val input = opt[String]("input", descr = "input path", required = true)
@@ -52,28 +54,6 @@ object PairsPMI extends Tokenizer {
 
     val textFile = sc.textFile(args.input())
 
-    /*
-    var sum = 1
-    val counts = textFile
-      .flatMap(line => {
-        val tokens = tokenize(line)
-        if (tokens.length > 1) tokens.sliding(2).map(p => p.mkString(",")).flatMap(p => List(p, p.split(",")(0)+",*")).toList else List()
-      })
-      .map(bigram => (bigram, 1))
-      .reduceByKey(_ + _, args.reducers())
-      .sortByKey()
-      .map(count => {
-        if(count._1.endsWith(",*")){
-          sum = count._2
-          ("("+count._1+")", ((count._2*1.0f)))
-        }else{
-          ("("+count._1+")", ((count._2*1.0f)/sum))
-        } 
-        })
-      
-    counts.saveAsTextFile(args.output())
-    */
-
     var numberOfLines = 0
     val uniqueWordCounts = textFile
       .flatMap(line => {
@@ -86,8 +66,6 @@ object PairsPMI extends Tokenizer {
       .map(token => (token, 1))
       .reduceByKey(_ + _, args.reducers())
 
-    val wordCountMap : scala.collection.mutable.HashMap[String,Int] = scala.collection.mutable.HashMap()
-    uniqueWordCounts.foreach(wordCountMap += (_1 -> _2) )
 
     val uniquePairCounts = textFile
       .flatMap(line =>{
@@ -101,10 +79,10 @@ object PairsPMI extends Tokenizer {
       .map(p =>{
         val key = p._1
         val c_x_y = p._2
-        val c_x = wordCountMap(key._1) * 1.0f
-        val c_y = wordCountMap(key._2) * 1.0f
-        val pmi = (c_x_y * 1.0f * numberOfLines / (c_x * c_y))
-        (key, (pmi, c_x_y))
+        val c_x = uniqueWordCounts.lookup(key._1)(0)      
+        val c_y = uniqueWordCounts.lookup(key._2)(0)
+        val pmi = log10(c_x_y * 1.0 * numberOfLines / (c_x * c_y))
+        (key, (pmi.toFloat, c_x_y))
       })
 
     uniquePairCounts.saveAsTextFile(args.output())
