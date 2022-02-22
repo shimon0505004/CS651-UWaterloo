@@ -86,15 +86,28 @@ object PairsPMI extends Tokenizer {
       .map(token => (token, 1))
       .reduceByKey(_ + _, args.reducers())
 
+    val wordCountMap : scala.collection.mutable.HashMap[String,Int] = scala.collection.mutable.HashMap()
+    uniqueWordCounts.foreach(wordCountMap += (_1 -> _2) )
+
     val uniquePairCounts = textFile
       .flatMap(line =>{
         var uniquetokens: Set[String] = Set()
         tokenize(line).foreach(uniquetokens += _)
 
-        if (uniquetokens.size > 1) uniquetokens.combinations(2).toList.permutations else List()
+        if (uniquetokens.size > 1) uniquetokens.toList.combinations(2).toList.flatMap(p => p.permutations.toList).map(l => (l.head, l.last)).toList else List()
+      })
+      .map(token => (token, 1))
+      .reduceByKey(_ + _, args.reducers())
+      .map(p =>{
+        val key = p._1
+        val c_x_y = p._2
+        val c_x = wordCountMap(key._1) * 1.0f
+        val c_y = wordCountMap(key._2) * 1.0f
+        val pmi = (c_x_y * 1.0f * numberOfLines / (c_x * c_y))
+        (key, (pmi, c_x_y))
       })
 
-    uniqueWordCounts.saveAsTextFile(args.output())
+    uniquePairCounts.saveAsTextFile(args.output())
 
   }
 }
