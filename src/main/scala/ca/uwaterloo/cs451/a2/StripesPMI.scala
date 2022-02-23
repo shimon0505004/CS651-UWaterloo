@@ -86,21 +86,19 @@ object StripesPMI extends Tokenizer {
         for(map2Key <- map2.keys){
           var updatedValue = map1.getOrElse(map2Key, (0.0, 0))
           val map2val = map2.getOrElse(map2Key, (0.0, 0))
-          updatedValue = ((map1val._1 + map2val._1), (map1val._2 + map2val._2))
+          updatedValue = ((updatedValue._1 + map2val._1), (updatedValue._2 + map2val._2))
           map1 += (map2Key -> updatedValue )
         }
         map1
       }, args.reducers())
       .map(p =>{
         val key = p._1
-        val filteredMap = p._2.retain((key, value) => value >= threshold)
+        var filteredMap = p._2.retain((key, value) => value._2 >= threshold)
 
-        val c_x = broadcastVar.value.get(key._1).get
-        filteredMap.map( p => {
+        val c_x = broadcastVar.value.get(key).get
+        filteredMap.foreach( p => {
           val c_y = broadcastVar.value.get(p._1).get
-          val pair = broadcastVar.value.get(p._2).get
-          pair._1 = (((pair._1) * (1.0) * numberOfLines) / (c_x * c_y))
-          (p._1, pair)
+          p._2._1 = log10(((p._2._1) * (1.0) * numberOfLines) / (c_x * c_y))          
         })
 
         (key, filteredMap)
