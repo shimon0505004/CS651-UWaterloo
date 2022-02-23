@@ -94,7 +94,7 @@ object StripesPMI extends Tokenizer {
       .map(p =>{
         val key = p._1
         var filteredMap = p._2.retain((key, value) => value._2 >= threshold)
-        
+                
         val c_x = broadcastVar.value.get(key).get
         val updatedMap = filteredMap.map( p => {
           val c_y = broadcastVar.value.get(p._1).get
@@ -104,6 +104,7 @@ object StripesPMI extends Tokenizer {
         
         (key, updatedMap)
       })
+      .filter(p => p._2.size > 0)
 
     uniquePairCounts.saveAsTextFile(args.output())
 
