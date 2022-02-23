@@ -79,18 +79,31 @@ object StripesPMI extends Tokenizer {
         var uniquetokens: Set[String] = Set()
         tokenize(line).take(40).foreach(uniquetokens += _)
 
-        if (uniquetokens.size > 1)uniquetokens.toList.combinations(2).toList.flatMap(l => Seq(((l.head, l.last), 1), ((l.last, l.head), 1))).toList else List()
+        if (uniquetokens.size > 1) uniquetokens.toList.combinations(2).toList.flatMap(l => Seq((l.head, scala.collection.mutable.Map(l.last -> (1.0, 1))), (l.last, scala.collection.mutable.Map(l.head -> (1.0, 1))))).toList else List()
       })
-      .reduceByKey(_ + _, args.reducers())
-      .filter(p => p._2 >= threshold)
-      .sortByKey()
+      .reduceByKey((map1, map2) => {
+        var map2Key = 0
+        for(map2Key <- map2.keys){
+          var updatedValue = map1.getOrElse(map2Key, (0.0, 0))
+          val map2val = map2.getOrElse(map2Key, (0.0, 0))
+          updatedValue = ((map1val._1 + map2val._1), (map1val._2 + map2val._2))
+          map1 += (map2Key -> updatedValue )
+        }
+        map1
+      }, args.reducers())
       .map(p =>{
         val key = p._1
-        val c_x_y = p._2
-        val c_x = broadcastVar.value.get(key._1).get      
-        val c_y = broadcastVar.value.get(key._2).get
-        val pmi = log10(c_x_y * 1.0 * numberOfLines / (c_x * c_y))
-        (key, (pmi, c_x_y))
+        val filteredMap = p._2.retain((key, value) => value >= threshold)
+
+        val c_x = broadcastVar.value.get(key._1).get
+        filteredMap.map( p => {
+          val c_y = broadcastVar.value.get(p._1).get
+          val pair = broadcastVar.value.get(p._2).get
+          pair._1 = (((pair._1) * (1.0) * numberOfLines) / (c_x * c_y))
+          (p._1, pair)
+        })
+
+        (key, filteredMap)
       })
 
     uniquePairCounts.saveAsTextFile(args.output())
