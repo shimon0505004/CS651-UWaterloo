@@ -55,9 +55,13 @@ object PairsPMI extends Tokenizer {
 
     val textFile = sc.textFile(args.input())
 
-    var numberOfLines = textFile.count()
+    
+    val lineCounterAccumulator = sc.longAccumulator("LineCounterAccumulator")
+
     val uniqueWordCounts = textFile
       .flatMap(line => {
+        lineCounterAccumulator.add(1)  
+
         var uniquetokens: Set[String] = Set()
         tokenize(line).take(40).foreach(uniquetokens += _)
 
@@ -68,6 +72,7 @@ object PairsPMI extends Tokenizer {
       .collectAsMap()
 
     val broadcastVar = sc.broadcast(uniqueWordCounts)
+    val numberOfLines = lineCounterAccumulator.value
 
     val uniquePairCounts = textFile
       .flatMap(line =>{
@@ -86,7 +91,7 @@ object PairsPMI extends Tokenizer {
         val c_x = broadcastVar.value.get(key._1).get      
         val c_y = broadcastVar.value.get(key._2).get
         val pmi = log10(c_x_y * 1.0 * numberOfLines / (c_x * c_y))
-        (key, (pmi.toFloat, c_x_y))
+        (key, (pmi, c_x_y))
       })
 
     uniquePairCounts.saveAsTextFile(args.output())
