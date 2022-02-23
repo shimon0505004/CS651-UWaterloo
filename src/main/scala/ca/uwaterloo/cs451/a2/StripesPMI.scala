@@ -46,7 +46,7 @@ object StripesPMI extends Tokenizer {
     log.info("Number of reducers: " + args.reducers())
     log.info("threshold: " + args.threshold())
 
-    val conf = new SparkConf().setAppName("Compute Pairs PMI")
+    val conf = new SparkConf().setAppName("Compute Stripes PMI")
     val sc = new SparkContext(conf)
     val threshold = args.threshold()
 

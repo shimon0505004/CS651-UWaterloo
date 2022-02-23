@@ -25,5 +25,10 @@ check_assignment1_public_linux.py
 /cs451-lintool-a2-shakespeare-bigrams-stripes/
 /cs451-lintool-a2-shakespeare-pmi-pairs/
 /cs451-lintool-a2-shakespeare-pmi-stripes/
-
+/check_assignment2_public_datasci.py
+/check_assignment2_public_linux.py
+/cs451-bigdatateach-a2-shakespeare-bigrams-pairs/
+/cs451-bigdatateach-a2-shakespeare-bigrams-stripes/
+/cs451-bigdatateach-a2-shakespeare-pmi-pairs/
+/cs451-bigdatateach-a2-shakespeare-pmi-stripes/
 
