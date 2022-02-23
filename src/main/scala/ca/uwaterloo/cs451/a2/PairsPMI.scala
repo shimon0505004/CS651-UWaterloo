@@ -79,9 +79,8 @@ object PairsPMI extends Tokenizer {
         var uniquetokens: Set[String] = Set()
         tokenize(line).take(40).foreach(uniquetokens += _)
 
-        if (uniquetokens.size > 1)uniquetokens.toList.combinations(2).toList.flatMap(p => p.permutations.toList).map(l => (l.head, l.last)).toList else List()
+        if (uniquetokens.size > 1)uniquetokens.toList.combinations(2).toList.flatMap(p => p.permutations.toList).map(l => ((l.head, l.last), 1)).toList else List()
       })
-      .map(token => (token, 1))
       .reduceByKey(_ + _, args.reducers())
       .filter(p => p._2 >= threshold)
       .sortByKey()
