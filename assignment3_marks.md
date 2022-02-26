@@ -8,24 +8,21 @@ WATIAM:ssarefin
 Runs on Linux?
 mark: 5.0/5
 
-BUILD FAILURE DUE TO A2 code conflict 
-Make a remark request to discuss what we can do about this issue.
-
 **Test 2**
 Compressed index size for Shakespeare collection
-mark: 0.0/5
+mark: 5.0/5
 
 **Test 3**
 Query 1 (Linux)
-mark: 0.0/5
+mark: 5.0/5
 
 **Test 4**
 Query 2 (Linux)
-mark: 0.0/5
+mark: 5.0/5
 
 **Test 5**
 Query 3 (Linux)
-mark: 0.0/5
+mark: 5.0/5
 
 **Test 6**
 Runs on Datasci?
@@ -33,25 +30,25 @@ mark: 5.0/5
 
 **Test 7**
 Compressed index size for the sample Wikipedia collection
-mark: 0.0/5
+mark: 5.0/5
 
 **Test 8**
 Query 1 (Datasci)
-mark: 0.0/5
+mark: 5.0/5
 
 **Test 9**
 Query 2 (Datasci)
-mark: 0.0/5
+mark: 5.0/5
 
 **Test 10**
 Query 3 (Datasci)
-mark: 0.0/5
+mark: 5.0/5
 
 **Extra debugging needed :** None
 
 **Feedback :** None
 
 **Final grade**
-mark: 10.0/50.0
+mark: 50.0/50.0
 
-summary: 20942174,ssarefin,10.0/50.0
+summary: 20942174,ssarefin,50.0/50.0
