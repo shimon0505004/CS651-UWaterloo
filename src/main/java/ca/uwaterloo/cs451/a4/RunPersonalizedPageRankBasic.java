@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.bespin.java.mapreduce.pagerank;
+package ca.uwaterloo.cs451.a4;
 
 import com.google.common.base.Preconditions;
 import org.apache.commons.cli.CommandLine;
