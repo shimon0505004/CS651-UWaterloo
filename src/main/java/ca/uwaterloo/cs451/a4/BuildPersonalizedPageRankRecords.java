@@ -66,7 +66,7 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
   private static class MyMapper extends Mapper<LongWritable, Text, IntWritable, PageRankNode> {
     private static final IntWritable nid = new IntWritable();
     private static final PageRankNode node = new PageRankNode();
-    private static int[] sourceNodes = null;
+    private static final Set<Integer> sourceNodesInSet = new HashSet<Integer>();
 
     @Override
     public void setup(Mapper<LongWritable, Text, IntWritable, PageRankNode>.Context context) {
@@ -75,10 +75,10 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
         throw new RuntimeException(NODE_CNT_FIELD + " cannot be 0!");
       }
       node.setType(PageRankNode.Type.Complete);
-      node.setPageRank((float) -StrictMath.log(n));
+      //node.setPageRank((float) -StrictMath.log(n));
 
-      sourceNodes = context.getConfiguration().getInts(NODE_SRC_FIELD);
-      if(sourceNodes.length == 0){
+      Collections.addAll(sourceNodesInSet, context.getConfiguration().getInts(NODE_SRC_FIELD));
+      if(sourceNodesInSet.size() == 0){
         throw new RuntimeException(NODE_SRC_FIELD + " cannot be 0!");
       }
     }
