@@ -38,6 +38,8 @@ import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.SequenceFileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
@@ -147,7 +149,10 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         //No neighbours, meaning a dead end. Create 1/m links to source nodes.
         int m = sourceNodesInList.size();
         float mass = node.getPageRank() - (float) StrictMath.log(m);
-        for(int i=0; i < m; i++){
+
+        context.getCounter(PageRank.edges).increment(sourceNodesInList.size());
+        
+        for(int i=0; i < sourceNodesInList.size(); i++){
           neighbor.set(sourceNodesInList.get(i));
           intermediateMass.setNodeId(sourceNodesInList.get(i));
           intermediateMass.setType(PageRankNode.Type.Mass);
@@ -389,18 +394,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
 
   // Run each iteration.
   private void iteratePageRank(int i, int j, String basePath, int numNodes, String sourceNodesInString) throws Exception {
-    // Each iteration consists of two phases (two MapReduce jobs).
-
-    // Job 1: distribute PageRank mass along outgoing edges.
-    float mass = phase1(i, j, basePath, numNodes, sourceNodesInString);
-
-    // Find out how much PageRank mass got lost at the dangling nodes.
-    float missing = 1.0f - (float) StrictMath.exp(mass);
-
-
-  }
-
-  private float phase1(int i, int j, String basePath, int numNodes, String sourceNodesInString) throws Exception {
     Job job = Job.getInstance(getConf());
     job.setJobName("PageRank:Basic:iteration" + j + ":Phase1");
     job.setJarByClass(RunPersonalizedPageRankBasic.class);
@@ -440,7 +433,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
 
     job.setInputFormatClass(NonSplitableSequenceFileInputFormat.class);
     job.setOutputFormatClass(SequenceFileOutputFormat.class);
-
+    
     job.setMapOutputKeyClass(IntWritable.class);
     job.setMapOutputValueClass(PageRankNode.class);
 
@@ -460,15 +453,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     job.waitForCompletion(true);
     System.out.println("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
-    float mass = Float.NEGATIVE_INFINITY;
-    FileSystem fs = FileSystem.get(getConf());
-    for (FileStatus f : fs.listStatus(new Path(outm))) {
-      FSDataInputStream fin = fs.open(f.getPath());
-      mass = sumLogProbs(mass, fin.readFloat());
-      fin.close();
-    }
-
-    return mass;
   }
 
 

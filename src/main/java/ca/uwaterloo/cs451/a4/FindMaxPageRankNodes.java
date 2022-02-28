@@ -80,7 +80,7 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
   }
 
   private static class MyReducer extends
-      Reducer<IntWritable, FloatWritable, IntWritable, Text> {
+      Reducer<IntWritable, FloatWritable, Text, IntWritable> {
     private static TopScoredObjects<Integer> queue;
 
     @Override
@@ -103,14 +103,14 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
 
     @Override
     public void cleanup(Context context) throws IOException, InterruptedException {
-      IntWritable key = new IntWritable();
-      Text value = new Text();
+      IntWritable nodeid = new IntWritable();
+      Text pagerank = new Text();
 
       for (PairOfObjectFloat<Integer> pair : queue.extractAll()) {
-        key.set(pair.getLeftElement());
+        nodeid.set(pair.getLeftElement());
         // We're outputting a string so we can control the formatting.
-        value.set(String.format("%.5f", pair.getRightElement()));
-        context.write(key, value);
+        pagerank.set(String.format("%.5f", pair.getRightElement()));
+        context.write(pagerank, nodeid);
       }
     }
   }
@@ -183,8 +183,8 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
     job.setMapOutputKeyClass(IntWritable.class);
     job.setMapOutputValueClass(FloatWritable.class);
 
-    job.setOutputKeyClass(IntWritable.class);
-    job.setOutputValueClass(Text.class);
+    job.setOutputKeyClass(Text.class);
+    job.setOutputValueClass(IntWritable.class);
     // Text instead of FloatWritable so we can control formatting
 
     job.setMapperClass(MyMapper.class);
