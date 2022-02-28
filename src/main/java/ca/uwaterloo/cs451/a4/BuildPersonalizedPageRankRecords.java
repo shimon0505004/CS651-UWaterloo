@@ -82,7 +82,6 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
         sourceNodesInSet.add(srcNode);
       }
 
-
       if(sourceNodesInSet.size() == 0){
         throw new RuntimeException(NODE_SRC_FIELD + " cannot be 0!");
       }
