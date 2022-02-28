@@ -376,8 +376,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     // Find out how much PageRank mass got lost at the dangling nodes.
     float missing = 1.0f - (float) StrictMath.exp(mass);
 
-    // Job 2: distribute missing mass, take care of random jump factor.
-    phase2(i, j, missing, basePath, numNodes);
+
   }
 
   private float phase1(int i, int j, String basePath, int numNodes) throws Exception {
@@ -449,48 +448,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     return mass;
   }
 
-  private void phase2(int i, int j, float missing, String basePath, int numNodes) throws Exception {
-    Job job = Job.getInstance(getConf());
-    job.setJobName("PageRank:Basic:iteration" + j + ":Phase2");
-    job.setJarByClass(RunPersonalizedPageRankBasic.class);
-
-    LOG.info("missing PageRank mass: " + missing);
-    LOG.info("number of nodes: " + numNodes);
-
-    String in = basePath + "/iter" + formatter.format(j) + "t";
-    String out = basePath + "/iter" + formatter.format(j);
-
-    LOG.info("PageRank: iteration " + j + ": Phase2");
-    LOG.info(" - input: " + in);
-    LOG.info(" - output: " + out);
-
-    job.getConfiguration().setBoolean("mapred.map.tasks.speculative.execution", false);
-    job.getConfiguration().setBoolean("mapred.reduce.tasks.speculative.execution", false);
-    job.getConfiguration().setFloat("MissingMass", (float) missing);
-    job.getConfiguration().setInt("NodeCount", numNodes);
-
-    job.setNumReduceTasks(0);
-
-    FileInputFormat.setInputPaths(job, new Path(in));
-    FileOutputFormat.setOutputPath(job, new Path(out));
-
-    job.setInputFormatClass(NonSplitableSequenceFileInputFormat.class);
-    job.setOutputFormatClass(SequenceFileOutputFormat.class);
-
-    job.setMapOutputKeyClass(IntWritable.class);
-    job.setMapOutputValueClass(PageRankNode.class);
-
-    job.setOutputKeyClass(IntWritable.class);
-    job.setOutputValueClass(PageRankNode.class);
-
-    job.setMapperClass(MapPageRankMassDistributionClass.class);
-
-    FileSystem.get(getConf()).delete(new Path(out), true);
-
-    long startTime = System.currentTimeMillis();
-    job.waitForCompletion(true);
-    System.out.println("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
-  }
 
   // Adds two log probs.
   private static float sumLogProbs(float a, float b) {
