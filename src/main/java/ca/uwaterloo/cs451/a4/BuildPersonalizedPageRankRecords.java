@@ -75,7 +75,6 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
         throw new RuntimeException(NODE_CNT_FIELD + " cannot be 0!");
       }
       node.setType(PageRankNode.Type.Complete);
-      //node.setPageRank((float) -StrictMath.log(n));
 
       Collections.addAll(sourceNodesInSet, context.getConfiguration().getInts(NODE_SRC_FIELD));
       if(sourceNodesInSet.size() == 0){
