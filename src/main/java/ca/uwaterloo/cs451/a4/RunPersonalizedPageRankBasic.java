@@ -170,22 +170,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       Reducer<IntWritable, PageRankNode, IntWritable, PageRankNode> {
     private static final PageRankNode intermediateMass = new PageRankNode();
 
-    // For random teleport links to source nodes.
-    private static final IntWritable numberOfSourceNodes = new IntWritable();
-    
-    @Override
-    public void setup(Context context) throws IOException {
-      Configuration conf = context.getConfiguration();
-
-      int m = context.getConfiguration().getInts(NODE_SRC_FIELD).size();
-
-      if(m  == 0){
-        throw new RuntimeException("Number of Source Nodes cannot be 0!");
-      }
-
-      numberOfSourceNodes.set(m);
-    }
-
     @Override
     public void reduce(IntWritable nid, Iterable<PageRankNode> values, Context context)
         throws IOException, InterruptedException {
@@ -223,6 +207,22 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     // through dangling nodes.
     private float totalMass = Float.NEGATIVE_INFINITY;
 
+    // For random teleport links to source nodes.
+    private static final IntWritable numberOfSourceNodes = new IntWritable();
+    
+    @Override
+    public void setup(Context context) throws IOException {
+      Configuration conf = context.getConfiguration();
+
+      int m = context.getConfiguration().getInts(NODE_SRC_FIELD).length;
+
+      if(m  == 0){
+        throw new RuntimeException("Number of Source Nodes cannot be 0!");
+      }
+
+      numberOfSourceNodes.set(m);
+    }
+
     @Override
     public void reduce(IntWritable nid, Iterable<PageRankNode> iterable, Context context)
         throws IOException, InterruptedException {
@@ -257,10 +257,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         }
       }
 
-      //float randomJumpFactor = (float) -StrictMath.log(m);
-      //Determine amount of random jumps
-      //if(isDeadEnd)
-
+      int m = numberOfSourceNodes.get();
       float randomJumpFactor = ((float) Math.log(ALPHA)) - ((float) StrictMath.log(m));
       mass = sumLogProbs(mass, randomJumpFactor);
 
