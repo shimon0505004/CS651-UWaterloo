@@ -103,6 +103,13 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
 
         node.setAdjacencyList(new ArrayListOfIntsWritable(neighbors));
       }
+      int m = sourceNodesInSet.size();
+      if(sourceNodesInSet.contains(Integer.parseInt(arr[0]))){
+        //Means current node is a source node
+        node.setPageRank((float) -StrictMath.log(m));
+      }else{
+        node.setPageRank((float) StrictMath.log(0.0));
+      }
 
       context.getCounter("graph", "numNodes").increment(1);
       context.getCounter("graph", "numEdges").increment(arr.length - 1);
