@@ -254,37 +254,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     }
   }
 
-  // Mapper that distributes the missing PageRank mass (lost at the dangling nodes) and takes care
-  // of the random jump factor.
-  private static class MapPageRankMassDistributionClass extends
-      Mapper<IntWritable, PageRankNode, IntWritable, PageRankNode> {
-    private float missingMass = 0.0f;
-    private int nodeCnt = 0;
-
-    @Override
-    public void setup(Context context) throws IOException {
-      Configuration conf = context.getConfiguration();
-
-      missingMass = conf.getFloat("MissingMass", 0.0f);
-      nodeCnt = conf.getInt("NodeCount", 0);
-    }
-
-    @Override
-    public void map(IntWritable nid, PageRankNode node, Context context)
-        throws IOException, InterruptedException {
-      float p = node.getPageRank();
-
-      float jump = (float) (Math.log(ALPHA) - Math.log(nodeCnt));
-      float link = (float) Math.log(1.0f - ALPHA)
-          + sumLogProbs(p, (float) (Math.log(missingMass) - Math.log(nodeCnt)));
-
-      p = sumLogProbs(jump, link);
-      node.setPageRank(p);
-
-      context.write(nid, node);
-    }
-  }
-
   // Random jump factor.
   private static float ALPHA = 0.15f;
   private static NumberFormat formatter = new DecimalFormat("0000");
