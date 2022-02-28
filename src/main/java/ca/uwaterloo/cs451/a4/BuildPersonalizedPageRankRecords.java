@@ -44,7 +44,9 @@ import tl.lin.data.array.ArrayListOfIntsWritable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Collections;
 
 
 /**
@@ -76,7 +78,11 @@ public class BuildPersonalizedPageRankRecords extends Configured implements Tool
       }
       node.setType(PageRankNode.Type.Complete);
 
-      Collections.addAll(sourceNodesInSet, context.getConfiguration().getInts(NODE_SRC_FIELD));
+      for(int srcNode : context.getConfiguration().getInts(NODE_SRC_FIELD)){
+        sourceNodesInSet.add(srcNode);
+      }
+
+
       if(sourceNodesInSet.size() == 0){
         throw new RuntimeException(NODE_SRC_FIELD + " cannot be 0!");
       }
