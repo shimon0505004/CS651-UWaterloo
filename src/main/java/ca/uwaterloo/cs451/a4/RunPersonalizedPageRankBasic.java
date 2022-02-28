@@ -406,7 +406,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     job.setJarByClass(RunPersonalizedPageRankBasic.class);
 
     String in = basePath + "/iter" + formatter.format(i);
-    String out = basePath + "/iter" + formatter.format(j) + "t";
+    String out = basePath + "/iter" + formatter.format(j);
     String outm = out + "-mass";
 
     // We need to actually count the number of part files to get the number of partitions (because
