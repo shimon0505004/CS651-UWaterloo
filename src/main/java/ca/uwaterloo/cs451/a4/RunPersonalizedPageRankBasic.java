@@ -130,7 +130,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       if (node.getAdjacencyList().size() > 0) {
         // Each neighbor gets an equal share of PageRank mass.
         ArrayListOfIntsWritable list = node.getAdjacencyList();
-        float mass = node.getPageRank() - (float) StrictMath.log(list.size());
+        float mass = ((float) StrictMath.log(1.0f - ALPHA)) + node.getPageRank() - (float) StrictMath.log(list.size());
 
         context.getCounter(PageRank.edges).increment(list.size());
 
@@ -147,8 +147,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         }
       }else{
         //No neighbours, meaning a dead end. Create 1/m links to source nodes.
-        int m = sourceNodesInList.size();
-        float mass = node.getPageRank() - (float) StrictMath.log(m);
+        float mass = (node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size()));
 
         context.getCounter(PageRank.edges).increment(sourceNodesInList.size());
         
@@ -163,6 +162,24 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           massMessages++;
         }
       }
+
+
+      //With probablity (1-BETA) = ALPHA, jump to some random source node. 
+      float jumpFactor = ((float) StrictMath.log(ALPHA)) + node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size());      
+      context.getCounter(PageRank.edges).increment(sourceNodesInList.size());
+      
+      for(int i=0; i < sourceNodesInList.size(); i++){
+        neighbor.set(sourceNodesInList.get(i));
+        intermediateMass.setNodeId(sourceNodesInList.get(i));
+        intermediateMass.setType(PageRankNode.Type.Mass);
+        intermediateMass.setPageRank(jumpFactor);
+
+        // Emit messages with PageRank mass to neighbors.
+        context.write(neighbor, intermediateMass);
+        massMessages++;
+      }
+
+      
 
       // Bookkeeping.
       context.getCounter(PageRank.nodes).increment(1);
@@ -188,8 +205,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           context.write(nid, n);
         } else {
           // Accumulate PageRank mass contributions.
-          float updatedPartialMass = sumLogProbs( n.getPageRank(), (float) Math.log(1.0f - ALPHA));
-          mass = sumLogProbs(mass, updatedPartialMass);
+          mass = sumLogProbs(mass, n.getPageRank());
           massMessages++;
         }
       }
@@ -256,15 +272,10 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           node.setAdjacencyList(list);
         } else {
           // This is a message that contains PageRank mass; accumulate.
-          float updatedPartialMass = sumLogProbs( n.getPageRank(), (float) Math.log(1.0f - ALPHA));
-          mass = sumLogProbs(mass, updatedPartialMass);
+          mass = sumLogProbs(mass, n.getPageRank());
           massMessagesReceived++;
         }
       }
-
-      int m = numberOfSourceNodes.get();
-      float randomJumpFactor = ((float) Math.log(ALPHA)) - ((float) StrictMath.log(m));
-      mass = sumLogProbs(mass, randomJumpFactor);
 
       // Update the final accumulated PageRank mass.
       node.setPageRank(mass);
