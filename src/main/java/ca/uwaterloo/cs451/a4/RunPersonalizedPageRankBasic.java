@@ -131,7 +131,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       if(node.getAdjacencyList().size()>0){
         //1. With probability beta = 1.0f - ALPHA, it will follow a link at random.
         ArrayListOfIntsWritable list = node.getAdjacencyList();
-        float mass = ((float) StrictMath(1.0f - ALPHA)) + node.getPageRank() - (float) StrictMath.log(list.size());
+        float mass = ((float) StrictMath.log(1.0f - ALPHA)) + node.getPageRank() - (float) StrictMath.log(list.size());
 
         context.getCounter(PageRank.edges).increment(list.size());
 
