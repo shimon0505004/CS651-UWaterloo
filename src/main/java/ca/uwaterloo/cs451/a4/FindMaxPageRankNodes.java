@@ -109,7 +109,7 @@ public class FindMaxPageRankNodes extends Configured implements Tool {
       for (PairOfObjectFloat<Integer> pair : queue.extractAll()) {
         nodeid.set(pair.getLeftElement());
         // We're outputting a string so we can control the formatting.
-        pagerank.set(String.format("%.5f", pair.getRightElement()));
+        pagerank.set(String.format("%.5f", StrictMath.exp(pair.getRightElement())));
         context.write(pagerank, nodeid);
       }
     }
