@@ -151,7 +151,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       }
 
       if(sourceNodesInSet.contains(node.getNodeId())){
-        float blankMass = float.NEGATIVE_INFINITY;    //Contribute nothing to neighbour. Just ensure that Atleast a zero mass arrives in reducer for source nodes for correct calculation
+        Float blankMass = Float.NEGATIVE_INFINITY;    //Contribute nothing to neighbour. Just ensure that Atleast a zero mass arrives in reducer for source nodes for correct calculation
         neighbor.set(list.get(i));
         intermediateMass.setNodeId(list.get(i));
         intermediateMass.setType(PageRankNode.Type.Mass);
