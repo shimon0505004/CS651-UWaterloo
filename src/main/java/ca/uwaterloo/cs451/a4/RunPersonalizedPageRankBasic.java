@@ -54,7 +54,9 @@ import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Collections;
 
 /**
@@ -146,6 +148,8 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           context.write(neighbor, intermediateMass);
           massMessages++;
         }
+
+      /*
         //With probablity (1-BETA) = ALPHA, jump to some random source node. 
         float jumpFactor = ((float) StrictMath.log(ALPHA)) + node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size());      
         context.getCounter(PageRank.edges).increment(sourceNodesInList.size());
@@ -160,9 +164,11 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           context.write(neighbor, intermediateMass);
           massMessages++;
         }
+        */
+
       }else{
-        // With probability 1.0f - beta = ALPHA, it will follow a link to source node.
-        float mass = (node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size()));
+        // With probability 1.0f - ALPHA = beta, it will follow a link to source node.
+        float mass = ((float) StrictMath.log(1.0f - ALPHA)) + (node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size()));
 
         context.getCounter(PageRank.edges).increment(sourceNodesInList.size());
         
@@ -177,9 +183,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           massMessages++;
         }
       }
-      
-
-      
 
       // Bookkeeping.
       context.getCounter(PageRank.nodes).increment(1);
@@ -228,21 +231,23 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     // through dangling nodes.
     private float totalMass = Float.NEGATIVE_INFINITY;
 
+    
     // For random teleport links to source nodes.
-    private static final IntWritable numberOfSourceNodes = new IntWritable();
+    private static final Set<Integer> sourceNodesInSet = new HashSet<Integer>();
     
     @Override
     public void setup(Context context) throws IOException {
       Configuration conf = context.getConfiguration();
 
-      int m = context.getConfiguration().getInts(NODE_SRC_FIELD).length;
-
-      if(m  == 0){
-        throw new RuntimeException("Number of Source Nodes cannot be 0!");
+      for(int srcNode : context.getConfiguration().getInts(NODE_SRC_FIELD)){
+        sourceNodesInSet.add(srcNode);
       }
 
-      numberOfSourceNodes.set(m);
+      if(sourceNodesInSet.size() == 0){
+        throw new RuntimeException(NODE_SRC_FIELD + " cannot be 0!");
+      }
     }
+    
 
     @Override
     public void reduce(IntWritable nid, Iterable<PageRankNode> iterable, Context context)
@@ -275,6 +280,11 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           mass = sumLogProbs(mass, n.getPageRank());
           massMessagesReceived++;
         }
+      }
+
+      float jumpFactor = ((float) StrictMath.log(ALPHA)) - (float) StrictMath.log(sourceNodesInSet.size());
+      if(sourceNodesInSet.contains(node.getNodeId())){
+        mass = sumLogProbs(mass, jumpFactor);
       }
 
       // Update the final accumulated PageRank mass.
