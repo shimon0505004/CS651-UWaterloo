@@ -102,6 +102,8 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     // For random teleport links to source nodes.
     private static final List<Integer> sourceNodesInList = new ArrayList<Integer>();
 
+    int massMessages = 0;
+
     @Override
     public void setup(Context context) throws IOException {
       Configuration conf = context.getConfiguration();
@@ -126,7 +128,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
 
       context.write(nid, intermediateStructure);
 
-      int massMessages = 0;
+      
 
       // Distribute PageRank mass to neighbors (along outgoing edges).
       
@@ -158,20 +160,20 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
 
 
     @Override
-    public void cleanup(Context context) throws IOException {
+    public void cleanup(Context context) throws IOException, InterruptedException {
 
       for(Integer sourceNodeID: sourceNodesInList){
         Float blankMass = Float.NEGATIVE_INFINITY;    //Contribute nothing to neighbour. Just ensure that Atleast a zero mass arrives in reducer for source nodes for correct calculation
         neighbor.set(sourceNodeID);
-        intermediateMass.setNodeId(node.getNodeId());
+        intermediateMass.setNodeId(sourceNodeID);
         intermediateMass.setType(PageRankNode.Type.Mass);
         intermediateMass.setPageRank(blankMass);
-        LOG.info(" - source nodes: " + node.getNodeId() + " " + blankMass);
+        LOG.info(" - source nodes: " + sourceNodeID + " " + blankMass);
         // Emit messages with PageRank mass to neighbors.
         context.write(neighbor, intermediateMass);
         massMessages++;  
       }
-
+      context.getCounter(PageRank.massMessages).increment(massMessages);
     }
   }
 
@@ -266,6 +268,8 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           // This is a message that contains PageRank mass; accumulate.
           mass = sumLogProbs(mass, n.getPageRank());
           massMessagesReceived++;
+
+          LOG.info(  node.getNodeId() + " getting value from "+ n.getNodeId() + " "+ n.getPageRank());
         }
       }
 
@@ -275,10 +279,12 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         float factor1 = ((float) StrictMath.log(ALPHA)) - (float) StrictMath.log(sourceNodesInSet.size());
         mass = sumLogProbs(mass, factor1);
 
+        LOG.info(  node.getNodeId() + " getting additional 1 mass "+ mass);
+
         float factor2 = ((float) StrictMath.log(1.0f - ALPHA)) + previousTerminalMass - (float) StrictMath.log(sourceNodesInSet.size());
         mass = sumLogProbs(mass, factor2);
 
-        LOG.info(" - source nodes: " + node.getNodeId() + " " + mass);
+        LOG.info(  node.getNodeId() + " getting additional 2 mass "+ mass);
       }
 
       // Update the final accumulated terminal PageRank mass.
