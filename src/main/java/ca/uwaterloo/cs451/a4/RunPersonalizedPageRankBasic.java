@@ -316,8 +316,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       FSDataOutputStream out = fs.create(new Path(path + "/" + taskId), false);
       out.writeFloat(terminalNodeMass);
       out.close();
-
-      conf.setFloat("PageRankPreviousTerminalMass", terminalNodeMass);
     }
   }
 
@@ -395,16 +393,17 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     LOG.info(" - end iteration: " + e);
     LOG.info(" - source nodes: " + sourceNodesInString);
 
+    float previousTerminalMass = Float.NEGATIVE_INFINITY;   //Initially, all terminal node mass is 0, so log(0) is negative infinity.
     // Iterate PageRank.
     for (int i = s; i < e; i++) {
-      iteratePageRank(i, i + 1, basePath, n, sourceNodesInString);
+      previousTerminalMass = iteratePageRank(i, i + 1, basePath, n, sourceNodesInString, previousTerminalMass);
     }
 
     return 0;
   }
 
   // Run each iteration.
-  private void iteratePageRank(int i, int j, String basePath, int numNodes, String sourceNodesInString) throws Exception {
+  private float iteratePageRank(int i, int j, String basePath, int numNodes, String sourceNodesInString, float previousTerminalMass) throws Exception {
     Job job = Job.getInstance(getConf());
     job.setJobName("PageRank:Basic:iteration" + j + ":Phase1");
     job.setJarByClass(RunPersonalizedPageRankBasic.class);
@@ -431,6 +430,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     int numReduceTasks = numPartitions;
 
     job.getConfiguration().setInt("NodeCount", numNodes);
+    job.getConfiguration().setFloat("PageRankPreviousTerminalMass", previousTerminalMass);
     job.getConfiguration().setBoolean("mapred.map.tasks.speculative.execution", false);
     job.getConfiguration().setBoolean("mapred.reduce.tasks.speculative.execution", false);
     //job.getConfiguration().set("mapred.child.java.opts", "-Xmx2048m");
@@ -464,6 +464,16 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     job.waitForCompletion(true);
     System.out.println("Job Finished in " + (System.currentTimeMillis() - startTime) / 1000.0 + " seconds");
 
+
+    float terminalmass = Float.NEGATIVE_INFINITY;
+    FileSystem fs = FileSystem.get(getConf());
+    for (FileStatus f : fs.listStatus(new Path(outm))) {
+      FSDataInputStream fin = fs.open(f.getPath());
+      terminalmass = sumLogProbs(mass, fin.readFloat());
+      fin.close();
+    }
+
+    return terminalmass;
   }
 
 
