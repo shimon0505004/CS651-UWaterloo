@@ -469,7 +469,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     FileSystem fs = FileSystem.get(getConf());
     for (FileStatus f : fs.listStatus(new Path(outm))) {
       FSDataInputStream fin = fs.open(f.getPath());
-      terminalmass = sumLogProbs(mass, fin.readFloat());
+      terminalmass = sumLogProbs(terminalmass, fin.readFloat());
       fin.close();
     }
 
