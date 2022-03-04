@@ -100,17 +100,17 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     private static final PageRankNode intermediateStructure = new PageRankNode();
 
     // For random teleport links to source nodes.
-    private static final List<Integer> sourceNodesInList = new ArrayList<Integer>();
+    private static final Set<Integer> sourceNodesInSet = new HashSet<Integer>();
 
     @Override
     public void setup(Context context) throws IOException {
       Configuration conf = context.getConfiguration();
 
       for(int srcNode : context.getConfiguration().getInts(NODE_SRC_FIELD)){
-        sourceNodesInList.add(srcNode);
+        sourceNodesInSet.add(srcNode);
       }
 
-      if(sourceNodesInList.size() == 0){
+      if(sourceNodesInSet.size() == 0){
         throw new RuntimeException(NODE_SRC_FIELD + " cannot be 0!");
       }
     }
@@ -148,6 +148,18 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           context.write(neighbor, intermediateMass);
           massMessages++;
         }
+      }
+
+      if(sourceNodesInSet.contains(node.getNodeId())){
+        float blankMass = float.NEGATIVE_INFINITY;    //Contribute nothing to neighbour. Just ensure that Atleast a zero mass arrives in reducer for source nodes for correct calculation
+        neighbor.set(list.get(i));
+        intermediateMass.setNodeId(list.get(i));
+        intermediateMass.setType(PageRankNode.Type.Mass);
+        intermediateMass.setPageRank(blankMass);
+
+        // Emit messages with PageRank mass to neighbors.
+        context.write(neighbor, intermediateMass);
+        massMessages++;
       }
 
       // Bookkeeping.
