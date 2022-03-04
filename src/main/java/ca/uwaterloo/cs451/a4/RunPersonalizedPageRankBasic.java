@@ -127,14 +127,12 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       context.write(nid, intermediateStructure);
 
       int massMessages = 0;
-      float jumpProbability = 1.0f;
 
       // Distribute PageRank mass to neighbors (along outgoing edges).
       
       if(node.getAdjacencyList().size()>0){
         //1. With probability beta = 1.0f - ALPHA, it will follow a link at random.
         ArrayListOfIntsWritable list = node.getAdjacencyList();
-        jumpProbability = ALPHA;
         float mass = ((float) StrictMath.log(1.0f - ALPHA)) + node.getPageRank() - (float) StrictMath.log(list.size());
 
         context.getCounter(PageRank.edges).increment(list.size());
@@ -150,20 +148,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           context.write(neighbor, intermediateMass);
           massMessages++;
         }
-      }
-
-      float jumpFactor = ((float) StrictMath.log(jumpProbability)) + node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size());      
-      context.getCounter(PageRank.edges).increment(sourceNodesInList.size());
-      
-      for(int i=0; i < sourceNodesInList.size(); i++){
-        neighbor.set(sourceNodesInList.get(i));
-        intermediateMass.setNodeId(sourceNodesInList.get(i));
-        intermediateMass.setType(PageRankNode.Type.Mass);
-        intermediateMass.setPageRank(jumpFactor);
-
-        // Emit messages with PageRank mass to neighbors.
-        context.write(neighbor, intermediateMass);
-        massMessages++;
       }
 
       // Bookkeeping.
@@ -211,9 +195,9 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       Reducer<IntWritable, PageRankNode, IntWritable, PageRankNode> {
     // For keeping track of PageRank mass encountered, so we can compute missing PageRank mass lost
     // through dangling nodes.
-    private float totalMass = Float.NEGATIVE_INFINITY;
-
-    
+    private float terminalNodeMass = Float.NEGATIVE_INFINITY;
+    private float previousTerminalMass = Float.NEGATIVE_INFINITY;
+        
     // For random teleport links to source nodes.
     private static final Set<Integer> sourceNodesInSet = new HashSet<Integer>();
     
@@ -228,6 +212,8 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       if(sourceNodesInSet.size() == 0){
         throw new RuntimeException(NODE_SRC_FIELD + " cannot be 0!");
       }
+
+      previousTerminalMass = conf.getFloat("PageRankPreviousTerminalMassPath", Float.NEGATIVE_INFINITY)
     }
     
 
@@ -264,7 +250,17 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         }
       }
 
-      // Update the final accumulated PageRank mass.
+      //Update for sourceNodes
+      if(sourceNodesInSet.contains(node.getNodeId())){
+        
+        float factor1 = ((float) StrictMath.log(ALPHA)) - (float) StrictMath.log(list.size());
+        mass = sumLogProbs(mass, factor1);
+
+        float factor2 = ((float) StrictMath.log(1.0f - ALPHA)) + previousTerminalMass - (float) StrictMath.log(list.size());
+        mass = sumLogProbs(mass, factor2);
+      }
+
+      // Update the final accumulated terminal PageRank mass.
       node.setPageRank(mass);
       context.getCounter(PageRank.massMessagesReceived).increment(massMessagesReceived);
 
@@ -273,8 +269,11 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         // Everything checks out, emit final node structure with updated PageRank value.
         context.write(nid, node);
 
-        // Keep track of total PageRank mass.
-        totalMass = sumLogProbs(totalMass, mass);
+        // Keep track of PageRank mass for terminal nodes for using in next iteration.
+        if(node.getAdjacencyList().size()==0){
+          terminalNodeMass = sumLogProbs(terminalNodeMass, mass);
+        }
+
       } else if (structureReceived == 0) {
         // We get into this situation if there exists an edge pointing to a node which has no
         // corresponding node structure (i.e., PageRank mass was passed to a non-existent node)...
@@ -295,16 +294,18 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     public void cleanup(Context context) throws IOException {
       Configuration conf = context.getConfiguration();
       String taskId = conf.get("mapred.task.id");
-      String path = conf.get("PageRankMassPath");
+      String path = conf.get("PageRankTerminalMassPath");
 
       Preconditions.checkNotNull(taskId);
       Preconditions.checkNotNull(path);
 
-      // Write to a file the amount of PageRank mass we've seen in this reducer.
+      // Write to a file the amount of terminal PageRank mass we've seen in this reducer.
       FileSystem fs = FileSystem.get(context.getConfiguration());
       FSDataOutputStream out = fs.create(new Path(path + "/" + taskId), false);
-      out.writeFloat(totalMass);
+      out.writeFloat(terminalNodeMass);
       out.close();
+
+      conf.setFloat("PageRankPreviousTerminalMass", terminalNodeMass);
     }
   }
 
@@ -398,7 +399,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
 
     String in = basePath + "/iter" + formatter.format(i);
     String out = basePath + "/iter" + formatter.format(j);
-    String outm = out + "-mass";
+    String outm = out + "-terminalmass";
 
     // We need to actually count the number of part files to get the number of partitions (because
     // the directory might contain _log).
@@ -421,7 +422,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
     job.getConfiguration().setBoolean("mapred.map.tasks.speculative.execution", false);
     job.getConfiguration().setBoolean("mapred.reduce.tasks.speculative.execution", false);
     //job.getConfiguration().set("mapred.child.java.opts", "-Xmx2048m");
-    job.getConfiguration().set("PageRankMassPath", outm);
+    job.getConfiguration().set("PageRankTerminalMassPath", outm);
     job.getConfiguration().set(NODE_SRC_FIELD, sourceNodesInString);
 
     job.setNumReduceTasks(numReduceTasks);
