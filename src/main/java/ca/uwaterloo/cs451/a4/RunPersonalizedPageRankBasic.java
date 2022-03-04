@@ -213,7 +213,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         throw new RuntimeException(NODE_SRC_FIELD + " cannot be 0!");
       }
 
-      previousTerminalMass = conf.getFloat("PageRankPreviousTerminalMassPath", Float.NEGATIVE_INFINITY)
+      previousTerminalMass = conf.getFloat("PageRankPreviousTerminalMassPath", Float.NEGATIVE_INFINITY);
     }
     
 
