@@ -168,7 +168,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         intermediateMass.setNodeId(sourceNodeID);
         intermediateMass.setType(PageRankNode.Type.Mass);
         intermediateMass.setPageRank(blankMass);
-        LOG.info(" - source nodes: " + sourceNodeID + " " + blankMass);
         // Emit messages with PageRank mass to neighbors.
         context.write(neighbor, intermediateMass);
         massMessages++;  
@@ -269,7 +268,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           mass = sumLogProbs(mass, n.getPageRank());
           massMessagesReceived++;
 
-          LOG.info(  node.getNodeId() + " getting value from "+ n.getNodeId() + " "+ n.getPageRank());
         }
       }
 
@@ -279,12 +277,8 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         float factor1 = ((float) StrictMath.log(ALPHA)) - (float) StrictMath.log(sourceNodesInSet.size());
         mass = sumLogProbs(mass, factor1);
 
-        LOG.info(  node.getNodeId() + " getting additional 1 mass "+ mass);
-
         float factor2 = ((float) StrictMath.log(1.0f - ALPHA)) + previousTerminalMass - (float) StrictMath.log(sourceNodesInSet.size());
         mass = sumLogProbs(mass, factor2);
-
-        LOG.info(  node.getNodeId() + " getting additional 2 mass "+ mass);
       }
 
       // Update the final accumulated terminal PageRank mass.
