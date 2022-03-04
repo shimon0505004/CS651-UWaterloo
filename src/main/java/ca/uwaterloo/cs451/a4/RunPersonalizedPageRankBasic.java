@@ -253,10 +253,10 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       //Update for sourceNodes
       if(sourceNodesInSet.contains(node.getNodeId())){
         
-        float factor1 = ((float) StrictMath.log(ALPHA)) - (float) StrictMath.log(list.size());
+        float factor1 = ((float) StrictMath.log(ALPHA)) - (float) StrictMath.log(sourceNodesInSet.size());
         mass = sumLogProbs(mass, factor1);
 
-        float factor2 = ((float) StrictMath.log(1.0f - ALPHA)) + previousTerminalMass - (float) StrictMath.log(list.size());
+        float factor2 = ((float) StrictMath.log(1.0f - ALPHA)) + previousTerminalMass - (float) StrictMath.log(sourceNodesInSet.size());
         mass = sumLogProbs(mass, factor2);
       }
 
