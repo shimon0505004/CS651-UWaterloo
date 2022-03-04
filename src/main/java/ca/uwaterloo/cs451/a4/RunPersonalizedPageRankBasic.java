@@ -127,12 +127,14 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
       context.write(nid, intermediateStructure);
 
       int massMessages = 0;
+      float jumpProbability = 1.0f;
 
       // Distribute PageRank mass to neighbors (along outgoing edges).
       
       if(node.getAdjacencyList().size()>0){
         //1. With probability beta = 1.0f - ALPHA, it will follow a link at random.
         ArrayListOfIntsWritable list = node.getAdjacencyList();
+        jumpProbability = ALPHA;
         float mass = ((float) StrictMath.log(1.0f - ALPHA)) + node.getPageRank() - (float) StrictMath.log(list.size());
 
         context.getCounter(PageRank.edges).increment(list.size());
@@ -150,10 +152,7 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         }
       }
 
-      float offset = (node.getAdjacencyList().size()>0)? ALPHA: 0.0;
-
-      //With probablity (1-BETA) = ALPHA, jump to some random source node. 
-      float jumpFactor = ((float) StrictMath.log(1.0f - offset)) + node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size());      
+      float jumpFactor = ((float) StrictMath.log(jumpProbability)) + node.getPageRank() - (float) StrictMath.log(sourceNodesInList.size());      
       context.getCounter(PageRank.edges).increment(sourceNodesInList.size());
       
       for(int i=0; i < sourceNodesInList.size(); i++){
@@ -166,7 +165,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
         context.write(neighbor, intermediateMass);
         massMessages++;
       }
-
 
       // Bookkeeping.
       context.getCounter(PageRank.nodes).increment(1);
@@ -265,13 +263,6 @@ public class RunPersonalizedPageRankBasic extends Configured implements Tool {
           massMessagesReceived++;
         }
       }
-
-      /*
-      float jumpFactor = ((float) StrictMath.log(ALPHA)) - (float) StrictMath.log(sourceNodesInSet.size());
-      if(sourceNodesInSet.contains(node.getNodeId())){
-        mass = sumLogProbs(mass, jumpFactor);
-      }
-      */
 
       // Update the final accumulated PageRank mass.
       node.setPageRank(mass);
