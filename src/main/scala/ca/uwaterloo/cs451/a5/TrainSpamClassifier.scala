@@ -51,12 +51,10 @@ object TrainSpamClassifier extends Tokenizer {
         val trained = textFile.map(line =>{
             // Parse input
             // ..
-            val words = tokenize(line)    
-            val docid = words.take(1)
-            words.drop(1)
-            val isSpam = words.take(1)
-            words.drop(1)
-            val features = words.map(_.toInt)
+            val words = line.split(" +")    
+            val docid = words(0)
+            val isSpam = words(1)
+            val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
 
             (0, (docid, isSpam, features))
             }).groupByKey(1)
