@@ -26,6 +26,7 @@ object TrainSpamClassifier extends Tokenizer {
 
     // w is the weight vector (make sure the variable is within scope)
     val w = Map[Int, Double]()
+    val delta = 0.002
 
     // Scores a document based on its list of features.
     def spamminess(features: Array[Int]) : Double = {
@@ -53,34 +54,23 @@ object TrainSpamClassifier extends Tokenizer {
             // ..
             val words = line.split(" +")    
             val docid = words(0)
-            val isSpam = words(1)
+            val isSpam:Double = if(words(1).matches("spam"))  1d else 0d
             val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
 
+            // Update the weights as follows:
+            val score = spamminess(features)
+            val prob = 1.0 / (1 + exp(-score))
+            features.foreach(f => {
+                if (w.contains(f)) {
+                    w(f) += (isSpam - prob) * delta
+                } else {
+                    w(f) = (isSpam - prob) * delta
+                }
+            })
+
             (0, (docid, isSpam, features))
-            }).groupByKey(1)
-
-        //log.info("Test")
-
-        /*
-        // This is the main learner:
-        val delta = 0.002
-
-        // For each instance...
-        val isSpam = ...   // label
-        val features = ... // feature vector of the training instance
-
-        // Update the weights as follows:
-        val score = spamminess(features)
-        val prob = 1.0 / (1 + exp(-score))
-        features.foreach(f => {
-            if (w.contains(f)) {
-                w(f) += (isSpam - prob) * delta
-            } else {
-                w(f) = (isSpam - prob) * delta
-            }
-        })
-        */
-
-        trained.saveAsTextFile(args.model())
+        }).groupByKey(1)
+            
+        w.saveAsTextFile(args.model())
     }
 }
