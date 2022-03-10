@@ -40,13 +40,28 @@ object TrainSpamClassifier extends Tokenizer {
         log.info("Input: " + args.input())
         log.info("Model Path: " + args.model())
 
+        val conf = new SparkConf().setAppName("Train Spam Classifier")
+        val sc = new SparkContext(conf)
+
+        val modelPath = new Path(args.model())
+        FileSystem.get(sc.hadoopConfiguration).delete(modelPath, true)
+
         val textFile = sc.textFile(args.input())
 
         val trained = textFile.map(line =>{
             // Parse input
             // ..
+            val words = tokenize(line)    
+            val docid = words.take(1)
+            words.drop(1)
+            val isSpam = words.take(1)
+            words.drop(1)
+            val features = words.map(_.toInt)
+
             (0, (docid, isSpam, features))
             }).groupByKey(1)
+
+        //log.info("Test")
 
         /*
         // This is the main learner:
