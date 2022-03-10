@@ -41,3 +41,7 @@ check_assignment1_public_linux.py
 /spam_eval_hdfs.sh
 /check_assignment4_public_linux.py
 /check_assignment5_public.py
+/spam.test.qrels.txt
+/spam.train.britney.txt
+/spam.train.group_x.txt
+/spam.train.group_y.txt
