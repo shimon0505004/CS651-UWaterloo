@@ -39,3 +39,5 @@ check_assignment1_public_linux.py
 /compute_spam_metrics.c
 /spam_eval.sh
 /spam_eval_hdfs.sh
+/check_assignment4_public_linux.py
+/check_assignment5_public.py
