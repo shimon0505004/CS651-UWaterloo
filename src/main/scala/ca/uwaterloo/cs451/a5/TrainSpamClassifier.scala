@@ -10,6 +10,9 @@ import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
+import scala.collection.mutable.Map
+import java.io.PrintWriter
+
 import math._
 
 
@@ -25,7 +28,7 @@ object TrainSpamClassifier extends Tokenizer {
     val log = Logger.getLogger(getClass().getName())
 
     // w is the weight vector (make sure the variable is within scope)
-    val w = Map[Int, Double]()
+    val w: Map[Int, Double] = Map[Int, Double]()
     val delta = 0.002
 
     // Scores a document based on its list of features.
@@ -61,16 +64,35 @@ object TrainSpamClassifier extends Tokenizer {
             val score = spamminess(features)
             val prob = 1.0 / (1 + exp(-score))
             features.foreach(f => {
+                val base = (isSpam - prob) * delta
+                var offset = 0d
                 if (w.contains(f)) {
-                    w(f) += (isSpam - prob) * delta
-                } else {
-                    w(f) = (isSpam - prob) * delta
-                }
+                    //w(f) += (isSpam - prob) * delta
+                    offset = w(f)
+                    //w - f
+                } 
+                val updatedVal = base + offset
+                w(f) = updatedVal
             })
 
             (0, (docid, isSpam, features))
+            //(docid, w.toList)
         }).groupByKey(1)
             
-        w.saveAsTextFile(args.model())
+        trained.saveAsTextFile(args.model())
+
+        /*
+        new PrintWriter(args.model()+"-weights") {
+            w.foreach {
+                case (k, v) =>{
+                    write(k + ":" + v)
+                    write("\n")
+                }
+            }
+            close()
+        }
+        */
+
+
     }
 }
