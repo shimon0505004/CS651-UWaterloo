@@ -34,5 +34,8 @@ check_assignment1_public_linux.py
 /cs451-bigdatateach-a4-Gnutella-PageRankRecords/
 /cs451-bigdatateach-a4-Gnutella-PageRank-top10/
 /cs451-bigdatateach-a4-Gnutella-PageRank/
-output.txt
-
+/output.txt
+/compute_spam_metrics 
+/compute_spam_metrics.c
+/spam_eval.sh
+/spam_eval_hdfs.sh
