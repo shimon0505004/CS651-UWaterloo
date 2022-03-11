@@ -79,6 +79,7 @@ object ApplySpamClassifier {
 
             (0, (docid, actualLabel, score, predictedLabel))
         }).groupByKey(1)
+        .flatMap{case (key,values) => values}
      
         tested.saveAsTextFile(args.output())
     }
