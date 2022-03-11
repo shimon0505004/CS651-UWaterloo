@@ -60,26 +60,31 @@ object TrainSpamClassifier extends Tokenizer {
             val isSpam:Double = if(words(1).matches("spam"))  1d else 0d
             val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
 
-            // Update the weights as follows:
-            val score = spamminess(features)
-            val prob = 1.0 / (1 + exp(-score))
-            features.foreach(f => {
-                val base = (isSpam - prob) * delta
-                var offset = 0d
-                if (w.contains(f)) {
-                    //w(f) += (isSpam - prob) * delta
-                    offset = w(f)
-                    //w - f
-                } 
-                val updatedVal = base + offset
-                w(f) = updatedVal
-            })
-
             (0, (docid, isSpam, features))
             //(docid, w.toList)
         }).groupByKey(1)
-            
+        .map{case (key,values) => {
+            values.foreach{ 
+                case (docid, isSpam, features) =>{
+                    // Update the weights as follows:
+                    val score = spamminess(features)
+                    val prob = 1.0 / (1 + exp(-score))
+                    features.foreach(f => {
+                        val base = (isSpam - prob) * delta
+                        val offset = w getOrElse(f, 0d)
+                        val updatedVal = base + offset
+                        w(f) = updatedVal
+                    })
+                }            
+            }
+
+            w.toList
+        }}  
+
         trained.saveAsTextFile(args.model())
+
+        
+
 
         /*
         new PrintWriter(args.model()+"-weights") {
