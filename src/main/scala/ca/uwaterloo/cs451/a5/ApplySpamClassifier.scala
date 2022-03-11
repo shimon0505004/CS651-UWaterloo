@@ -8,7 +8,7 @@ import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
-//import scala.collection.mutable.Map
+import scala.collection.mutable.Map
 import java.io.PrintWriter
 
 import math._
@@ -48,13 +48,28 @@ object ApplySpamClassifier {
 
         val modelFile = sc.textFile(args.model())
 
-        val newMap = modelFile.map(line =>{
+        modelFile.foreach(line => {
             val words = line.split(",")
             val key:Int = words(0).toInt
             val value:Double = words(1).toDouble
-            w updated (key, value)
-            (key, value)
+            w += key -> value
+        })
+        
+        val textFile = sc.textFile(args.input())
+
+        val tested = textFile.map(line =>{
+            // Parse input
+            // ..
+            val words = line.split(" +")    
+            val docid = words(0)
+            val actualLabel = words(1)
+            val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
+            val score = spamminess(features)
+             val predictedLabel = if(score > 0d) "spam" else "ham"
+
+            (docid, actualLabel, score, predictedLabel)
         })
      
+        tested.saveAsTextFile(args.output())
     }
 }
