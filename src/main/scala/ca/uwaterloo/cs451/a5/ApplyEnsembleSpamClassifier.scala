@@ -54,13 +54,13 @@ object ApplyEnsembleSpamClassifier {
 
         val modelFiles = getListOfFiles(args.model())
         val models = modelFiles.map(filepath =>{
-            sc.textFile(args.model()).map(line => {
+            sc.textFile(filepath).map(line => {
                 val words = line.substring(1, line.length()-1).split(",")
                 val key:Int = words(0).toInt
                 val value:Double = words(1).toDouble
                 (key, value)
             }).collectAsMap()
-        })
+        }).toList
 
         val tested = textFile.map(line =>{
             // Parse input
