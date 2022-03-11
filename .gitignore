@@ -47,4 +47,11 @@ check_assignment1_public_linux.py
 /spam.train.group_y.txt
 /cs451-bigdatateach-a5-model-group_x
 /cs451-bigdatateach-a5-test-group_x
+/cs451-bigdatateach-a5-model-britney/
+/cs451-bigdatateach-a5-model-group_y/
+/cs451-bigdatateach-a5-test-britney/
+/cs451-bigdatateach-a5-test-group_y/
+/cs451-bigdatateach-a5-model-fusion/
+
+
 
