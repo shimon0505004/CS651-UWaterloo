@@ -63,7 +63,7 @@ object TrainSpamClassifier extends Tokenizer {
             (0, (docid, isSpam, features))
             //(docid, w.toList)
         }).groupByKey(1)
-        .map{case (key,values) => {
+        .flatMap{case (key,values) => {
             values.foreach{ 
                 case (docid, isSpam, features) =>{
                     // Update the weights as follows:
