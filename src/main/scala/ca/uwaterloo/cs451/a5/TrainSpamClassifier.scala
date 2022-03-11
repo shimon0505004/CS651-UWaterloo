@@ -1,6 +1,3 @@
-
-
-
 package ca.uwaterloo.cs451.a5
 
 import org.apache.log4j._

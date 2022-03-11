@@ -3,14 +3,14 @@
 
 package ca.uwaterloo.cs451.a5
 
-import io.bespin.scala.util.Tokenizer
-
 import org.apache.log4j._
 import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
-import scala.collection.mutable.Map
+//import scala.collection.mutable.Map
+import java.io.PrintWriter
+
 import math._
 
 
@@ -24,6 +24,7 @@ class ApplySpamClassifierConf(args: Seq[String]) extends ScallopConf(args) {
 
 object ApplySpamClassifier {
 
+    val log = Logger.getLogger(getClass().getName())
     val w: Map[Int, Double] = Map[Int, Double]()
 
     def spamminess(features: Array[Int]) : Double = {
@@ -33,7 +34,7 @@ object ApplySpamClassifier {
     }
 
     def main(argv: Array[String]) {
-        val args = new TrainSpamClassifierConf(argv)
+        val args = new ApplySpamClassifierConf(argv)
 
         log.info("Input: " + args.input())
         log.info("Output: " + args.output())
@@ -42,9 +43,18 @@ object ApplySpamClassifier {
         val conf = new SparkConf().setAppName("Apply Spam Classifier")
         val sc = new SparkContext(conf)
 
-        val outputPath = new Path(args.model())
+        val outputPath = new Path(args.output())
         FileSystem.get(sc.hadoopConfiguration).delete(outputPath, true)
 
-        w = sc.textFile(args.model()).collectAsMap()
+        val modelFile = sc.textFile(args.model())
+
+        val newMap = modelFile.map(line =>{
+            val words = line.split(",")
+            val key:Int = words(0).toInt
+            val value:Double = words(1).toDouble
+            w updated (key, value)
+            (key, value)
+        })
+     
     }
 }
