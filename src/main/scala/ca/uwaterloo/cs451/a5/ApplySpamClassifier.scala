@@ -25,7 +25,7 @@ class ApplySpamClassifierConf(args: Seq[String]) extends ScallopConf(args) {
 object ApplySpamClassifier {
 
     val log = Logger.getLogger(getClass().getName())
-    val w: Map[Int, Double] = Map[Int, Double]()
+    var w: Map[Int, Double] = Map[Int, Double]()
 
     def spamminess(features: Array[Int]) : Double = {
         var score = 0d
@@ -47,13 +47,23 @@ object ApplySpamClassifier {
         FileSystem.get(sc.hadoopConfiguration).delete(outputPath, true)
 
         val modelFile = sc.textFile(args.model())
-
+        
+        /*
         modelFile.foreach(line => {
-            val words = line.split(",")
+            val words = line.substring(1, line.length()-1).split(",")
             val key:Int = words(0).toInt
             val value:Double = words(1).toDouble
             w += key -> value
         })
+        */
+
+        val modelMap = modelFile.map(line => {
+            val words = line.substring(1, line.length()-1).split(",")
+            val key:Int = words(0).toInt
+            val value:Double = words(1).toDouble
+            (key, value)
+        }).collectAsMap()
+        w = w.++(modelMap)
         
         val textFile = sc.textFile(args.input())
 
@@ -67,8 +77,8 @@ object ApplySpamClassifier {
             val score = spamminess(features)
              val predictedLabel = if(score > 0d) "spam" else "ham"
 
-            (docid, actualLabel, score, predictedLabel)
-        })
+            (0, (docid, actualLabel, score, predictedLabel))
+        }).groupByKey(1)
      
         tested.saveAsTextFile(args.output())
     }
