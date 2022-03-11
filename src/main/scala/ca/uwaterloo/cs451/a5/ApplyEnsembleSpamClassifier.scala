@@ -25,6 +25,20 @@ object ApplyEnsembleSpamClassifier {
 
     val log = Logger.getLogger(getClass().getName())
 
+    def spamminess(w: Map[Int, Double], features: Array[Int]) : Double = {
+        var score = 0d
+        features.foreach(f => if (w.contains(f)) score += w(f))
+        score
+    }
+
+    def getListOfFiles(dir: String): List[String] = {
+        //Reference: https://stackoverflow.com/questions/48162153/get-list-of-files-from-directory-in-scala
+        val file = new File(dir)
+        file.listFiles.filter(_.isFile)
+            .filter(_.getName.startsWith("part-"))
+            .map(_.getPath).toList
+    }
+
     def main(argv: Array[String]) {
         val args = new ApplyEnsembleSpamClassifierConf(argv)
 
@@ -40,6 +54,41 @@ object ApplyEnsembleSpamClassifier {
         FileSystem.get(sc.hadoopConfiguration).delete(outputPath, true)
 
         val textFile = sc.textFile(args.input())
+
+        val modelFiles = getListOfFiles(args.model())
+        val models = modelFiles.map(filepath =>{
+            sc.textFile(args.model()).map(line => {
+                val words = line.substring(1, line.length()-1).split(",")
+                val key:Int = words(0).toInt
+                val value:Double = words(1).toDouble
+                (key, value)
+            }).collectAsMap()
+        })
+
+        val tested = textFile.map(line =>{
+            // Parse input
+            // ..
+            val words = line.split(" +")    
+            val docid = words(0)
+            val actualLabel = words(1)
+            val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
+            val scores = models.map(model => spamminess(model, features))
+
+            if(args.method().matches("average")){
+                val score = scores.sum / scores.length
+                val predictedLabel = if(score > 0d) "spam" else "ham"
+                (0, (docid, actualLabel, score, predictedLabel))
+            }else{
+                val numberOfSpams = scores.filter(_ > 0).length
+                val numberOfHams = scores.length - numberOfSpams
+                val score = numberOfSpams - numberOfHams
+                val predictedLabel = if(score > 0d) "spam" else "ham"
+                (0, (docid, actualLabel, score, predictedLabel))
+            }
+        }).groupByKey(1)
+        .flatMap{case (key,values) => values}
+     
+        tested.saveAsTextFile(args.output())
 
     }
 
