@@ -47,15 +47,6 @@ object ApplySpamClassifier {
         FileSystem.get(sc.hadoopConfiguration).delete(outputPath, true)
 
         val modelFile = sc.textFile(args.model())
-        
-        /*
-        modelFile.foreach(line => {
-            val words = line.substring(1, line.length()-1).split(",")
-            val key:Int = words(0).toInt
-            val value:Double = words(1).toDouble
-            w += key -> value
-        })
-        */
 
         val modelMap = modelFile.map(line => {
             val words = line.substring(1, line.length()-1).split(",")
@@ -75,7 +66,7 @@ object ApplySpamClassifier {
             val actualLabel = words(1)
             val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
             val score = spamminess(features)
-             val predictedLabel = if(score > 0d) "spam" else "ham"
+            val predictedLabel = if(score > 0d) "spam" else "ham"
 
             (0, (docid, actualLabel, score, predictedLabel))
         }).groupByKey(1)
