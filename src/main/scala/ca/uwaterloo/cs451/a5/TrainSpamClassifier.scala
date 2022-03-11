@@ -3,8 +3,6 @@
 
 package ca.uwaterloo.cs451.a5
 
-import io.bespin.scala.util.Tokenizer
-
 import org.apache.log4j._
 import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
@@ -23,7 +21,7 @@ class TrainSpamClassifierConf(args: Seq[String]) extends ScallopConf(args) {
     verify()
 }
 
-object TrainSpamClassifier extends Tokenizer {
+object TrainSpamClassifier {
 
     val log = Logger.getLogger(getClass().getName())
 
@@ -82,22 +80,5 @@ object TrainSpamClassifier extends Tokenizer {
         }}  
 
         trained.saveAsTextFile(args.model())
-
-        
-
-
-        /*
-        new PrintWriter(args.model()+"-weights") {
-            w.foreach {
-                case (k, v) =>{
-                    write(k + ":" + v)
-                    write("\n")
-                }
-            }
-            close()
-        }
-        */
-
-
     }
 }
