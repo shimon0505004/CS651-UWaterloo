@@ -1,15 +1,12 @@
-
-
-
 package ca.uwaterloo.cs451.a5
-
-import io.bespin.scala.util.Tokenizer
 
 import org.apache.log4j._
 import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
+import scala.collection.Map
 import org.rogach.scallop._
+import java.io._  
 import math._
 
 class ApplyEnsembleSpamClassifierConf(args: Seq[String]) extends ScallopConf(args) {
@@ -74,17 +71,14 @@ object ApplyEnsembleSpamClassifier {
             val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
             val scores = models.map(model => spamminess(model, features))
 
-            if(args.method().matches("average")){
-                val score = scores.sum / scores.length
-                val predictedLabel = if(score > 0d) "spam" else "ham"
-                (0, (docid, actualLabel, score, predictedLabel))
-            }else{
+            var score = scores.sum / scores.length
+            if(args.method().matches("vote")){
                 val numberOfSpams = scores.filter(_ > 0).length
                 val numberOfHams = scores.length - numberOfSpams
-                val score = numberOfSpams - numberOfHams
-                val predictedLabel = if(score > 0d) "spam" else "ham"
-                (0, (docid, actualLabel, score, predictedLabel))
+                score = numberOfSpams - numberOfHams
             }
+            val predictedLabel = if(score > 0d) "spam" else "ham"
+            (0, (docid, actualLabel, score, predictedLabel))
         }).groupByKey(1)
         .flatMap{case (key,values) => values}
      
