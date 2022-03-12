@@ -54,7 +54,7 @@ object ApplySpamClassifier {
             (key, value)
         }).collectAsMap())
         
-        val textFile = sc.textFile(args.input())
+        val textFile = sc.textFile(args.input(), 1)
 
         val tested = textFile.map(line =>{
             // Parse input

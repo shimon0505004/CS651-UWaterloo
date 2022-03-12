@@ -47,7 +47,7 @@ object TrainSpamClassifier {
         val modelPath = new Path(args.model())
         FileSystem.get(sc.hadoopConfiguration).delete(modelPath, true)
 
-        val textFile = sc.textFile(args.input())
+        val textFile = sc.textFile(args.input(), 1)
 
         val trained = if(!args.shuffle()) {
             textFile.map(line =>{

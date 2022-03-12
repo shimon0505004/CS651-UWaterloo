@@ -50,7 +50,7 @@ object ApplyEnsembleSpamClassifier {
         val outputPath = new Path(args.output())
         FileSystem.get(sc.hadoopConfiguration).delete(outputPath, true)
 
-        val textFile = sc.textFile(args.input())
+        val textFile = sc.textFile(args.input(), 1)
         val outputType:String = args.method()
 
         val modelFiles = getListOfFiles(args.model())
