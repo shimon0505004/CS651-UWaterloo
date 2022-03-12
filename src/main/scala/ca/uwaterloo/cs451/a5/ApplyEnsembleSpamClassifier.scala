@@ -51,16 +51,17 @@ object ApplyEnsembleSpamClassifier {
         FileSystem.get(sc.hadoopConfiguration).delete(outputPath, true)
 
         val textFile = sc.textFile(args.input())
+        val outputType:String = args.method()
 
         val modelFiles = getListOfFiles(args.model())
         val models = modelFiles.map(filepath =>{
-            sc.textFile(filepath).map(line => {
+            sc.broadcast(sc.textFile(filepath).map(line => {
                 val words = line.substring(1, line.length()-1).split(",")
                 val key:Int = words(0).toInt
                 val value:Double = words(1).toDouble
                 (key, value)
-            }).collectAsMap()
-        }).toList
+            }).collectAsMap())
+        })
 
         val tested = textFile.map(line =>{
             // Parse input
@@ -69,16 +70,19 @@ object ApplyEnsembleSpamClassifier {
             val docid = words(0)
             val actualLabel = words(1)
             val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
-            val scores = models.map(model => spamminess(model, features))
+            val scores = models.map(model => spamminess(model.value, features))
 
-            var score = scores.sum / scores.length
-            if(args.method().matches("vote")){
-                val numberOfSpams = scores.filter(_ > 0).length
-                val numberOfHams = scores.length - numberOfSpams
-                score = numberOfSpams - numberOfHams
-            }
-            val predictedLabel = if(score > 0d) "spam" else "ham"
-            (0, (docid, actualLabel, score, predictedLabel))
+            var score1 = scores.sum / scores.length
+            val predictedLabel1 = if(score1 > 0d) "spam" else "ham"
+            val retval1 = (0, (docid, actualLabel, score1, predictedLabel1))        
+
+            val numberOfSpams = scores.filter(_ > 0).length
+            val numberOfHams = scores.length - numberOfSpams
+            val score2 = numberOfSpams - numberOfHams
+            val predictedLabel2 = if(score2 > 0d) "spam" else "ham"
+            val retval2 = (0, (docid, actualLabel, score2, predictedLabel2))
+
+            if(outputType.matches("average")) retval1 else retval2
         }).groupByKey(1)
         .flatMap{case (key,values) => values}
      
