@@ -8,7 +8,7 @@ import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
-import scala.collection.mutable.Map
+import scala.collection.Map
 import java.io.PrintWriter
 
 import math._
@@ -25,9 +25,8 @@ class ApplySpamClassifierConf(args: Seq[String]) extends ScallopConf(args) {
 object ApplySpamClassifier {
 
     val log = Logger.getLogger(getClass().getName())
-    var w: Map[Int, Double] = Map[Int, Double]()
-
-    def spamminess(features: Array[Int]) : Double = {
+    
+    def spamminess(w: Map[Int, Double], features: Array[Int]) : Double = {
         var score = 0d
         features.foreach(f => if (w.contains(f)) score += w(f))
         score
@@ -48,13 +47,12 @@ object ApplySpamClassifier {
 
         val modelFile = sc.textFile(args.model())
 
-        val modelMap = modelFile.map(line => {
+        val modelMapBroadcastVal = sc.broadcast(modelFile.map(line => {
             val words = line.substring(1, line.length()-1).split(",")
             val key:Int = words(0).toInt
             val value:Double = words(1).toDouble
             (key, value)
-        }).collectAsMap()
-        w = w.++(modelMap)
+        }).collectAsMap())
         
         val textFile = sc.textFile(args.input())
 
@@ -65,7 +63,7 @@ object ApplySpamClassifier {
             val docid = words(0)
             val actualLabel = words(1)
             val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
-            val score = spamminess(features)
+            val score = spamminess(modelMapBroadcastVal.value, features)
             val predictedLabel = if(score > 0d) "spam" else "ham"
 
             (0, (docid, actualLabel, score, predictedLabel))
