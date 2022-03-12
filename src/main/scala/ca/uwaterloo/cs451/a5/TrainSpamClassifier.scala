@@ -15,6 +15,7 @@ class TrainSpamClassifierConf(args: Seq[String]) extends ScallopConf(args) {
     mainOptions = Seq(input, model)
     val input = opt[String]("input", descr = "input path", required = true)
     val model = opt[String]("model", descr = "model", required = true)
+    val shuffle = opt[Boolean]("shuffle", descr = "enable or disable shuffle", required = false)
     verify()
 }
 
@@ -38,6 +39,7 @@ object TrainSpamClassifier {
 
         log.info("Input: " + args.input())
         log.info("Model Path: " + args.model())
+        log.info("Shuffling Enabled: " + args.shuffle())
 
         val conf = new SparkConf().setAppName("Train Spam Classifier")
         val sc = new SparkContext(conf)
@@ -47,34 +49,65 @@ object TrainSpamClassifier {
 
         val textFile = sc.textFile(args.input())
 
-        val trained = textFile.map(line =>{
-            // Parse input
-            // ..
-            val words = line.split(" +")    
-            val docid = words(0)
-            val isSpam:Double = if(words(1).matches("spam"))  1d else 0d
-            val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
+        val trained = if(!args.shuffle()) {
+            textFile.map(line =>{
+                // Parse input
+                // ..
+                val words = line.split(" +")    
+                val docid = words(0)
+                val isSpam:Double = if(words(1).matches("spam"))  1d else 0d
+                val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
 
-            (0, (docid, isSpam, features))
-            //(docid, w.toList)
-        }).groupByKey(1)
-        .flatMap{case (key,values) => {
-            values.foreach{ 
-                case (docid, isSpam, features) =>{
-                    // Update the weights as follows:
-                    val score = spamminess(features)
-                    val prob = 1.0 / (1 + exp(-score))
-                    features.foreach(f => {
-                        val base = (isSpam - prob) * delta
-                        val offset = w getOrElse(f, 0d)
-                        val updatedVal = base + offset
-                        w(f) = updatedVal
-                    })
-                }            
-            }
+                (0, (docid, isSpam, features))
+            }).groupByKey(1)
+            .flatMap{case (key,values) => {
+                values.foreach{ 
+                    case (docid, isSpam, features) =>{
+                        // Update the weights as follows:
+                        val score = spamminess(features)
+                        val prob = 1.0 / (1 + exp(-score))
+                        features.foreach(f => {
+                            val base = (isSpam - prob) * delta
+                            val offset = w getOrElse(f, 0d)
+                            val updatedVal = base + offset
+                            w(f) = updatedVal
+                        })
+                    }            
+                }
 
-            w.toList
-        }}  
+                w.toList
+            }}  
+        }   else    {
+            textFile.map(line =>{
+                // Parse input
+                // ..
+                val words = line.split(" +")    
+                val docid = words(0)
+                val isSpam:Double = if(words(1).matches("spam"))  1d else 0d
+                val features:Array[Int] = words.slice(2, words.size).map(_.toInt)
+
+                (scala.util.Random.nextInt, (docid, isSpam, features))
+            }).sortBy(_._1)
+            .map{case (key,values) => (0, values)}            
+            .groupByKey(1)
+            .flatMap{case (key,values) => {
+                values.foreach{ 
+                    case (docid, isSpam, features) =>{
+                        // Update the weights as follows:
+                        val score = spamminess(features)
+                        val prob = 1.0 / (1 + exp(-score))
+                        features.foreach(f => {
+                            val base = (isSpam - prob) * delta
+                            val offset = w getOrElse(f, 0d)
+                            val updatedVal = base + offset
+                            w(f) = updatedVal
+                        })
+                    }            
+                }
+
+                w.toList
+            }}  
+        } 
 
         trained.saveAsTextFile(args.model())
     }
