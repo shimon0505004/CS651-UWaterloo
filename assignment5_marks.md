@@ -13,9 +13,9 @@ WATIAM:ssarefin
 
 **Test 4** ApplySpamClassifier mark: 5.0/5
 
-**Test 5** ApplyEnsembleSpamClassifier - score averaging mark: 0.0/3
+**Test 5** ApplyEnsembleSpamClassifier - score averaging mark: 3.0/3
 
-**Test 6** ApplyEnsembleSpamClassifier - voting mark: 0.0/3
+**Test 6** ApplyEnsembleSpamClassifier - voting mark: 3.0/3
 
 **Test 7** TrainSpamClassifier shuffle mark: 5.0/5
 
@@ -26,6 +26,6 @@ WATIAM:ssarefin
 **Feedback :** 
 
 **Final grade**
-mark: 54.0/60.0
+mark: 60.0/60.0
 
-summary: 20942174,ssarefin,54.0/60.0
+summary: 20942174,ssarefin,60.0/60.0
