@@ -58,8 +58,7 @@ check_assignment1_public_linux.py
 /cs451-bigdatateach-a5-model-britney-shuffle/
 /cs451-bigdatateach-a5-test-group_x-all/
 /cs451-bigdatateach-a5-test-britney-shuffle/
-
-
-
-
-
+/TPC-H-0.1-PARQUET.*
+/TPC-H-0.1-TXT.*
+/TPC-H-0.1-PARQUET/**
+/TPC-H-0.1-TXT/**
