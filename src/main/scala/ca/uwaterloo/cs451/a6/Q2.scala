@@ -8,6 +8,7 @@ import scala.collection.Map
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.Row
+import org.apache.spark.rdd.PairRDDFunctions
 import org.rogach.scallop._
 import java.io._  
 import math._
@@ -36,14 +37,39 @@ object Q2{
         val date:String = args.date()
 
         val isParquet:Boolean = args.parquet()
+        val limit = 20
 
         val queryResult  = if(!isParquet){
             //Process as TXT file
             val lineitemRDD = sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
-            lineitemRDD.map(row => row.split('|').apply(10)).filter(_.equals(date)).count()
+            val ordersRDD = sparkSession.sparkContext.textFile(args.input()+"/orders.tbl")
+            
+            val lineItemProjection = lineitemRDD.map(row => row.split('|'))
+                .filter(row.apply(10).equals(date))
+                .map(row => (row.apply(0), row.apply(10)))
+
+            val ordersProjection = ordersRDD.map(row => {
+                val arr = row.split('|')
+                (arr.apply(0), arr.apply(5))
+            }
+
+            lineItemProjection.cogroup(ordersProjection)
+                .filter((key,value) => value.length==2)
+                .map((key,value) => (value.apply(1), key))
+                .sortby(_._2)
+                .take(limit)
+            
         }else{
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
-            lineitemRDD.map(row => row.getString(10)).filter(_.equals(date)).count()
+            val ordersRDD = sparkSession.read.parquet(args.input()+"/orders").rdd
+            val lineItemProjection = lineitemRDD.filter(row.getString(10).equals(date)).map(row => (row.apply(0), row.apply(10)))
+            val ordersProjection = ordersRDD.map(row => (row.apply(0), row.apply(5)))
+
+            lineItemProjection.cogroup(ordersProjection)
+                .filter((key,value) => value.length==2)
+                .map((key,value) => (value.apply(1), key))
+                .sortby(_._2)
+                .take(limit)
         }
 
         println(s"ANSWER=${queryResult}")
