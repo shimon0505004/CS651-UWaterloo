@@ -56,7 +56,7 @@ object Q3{
         val queryResult  = if(!isParquet){
             //Process as TXT file
             val lineitemRDD = sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
-            val partRDD = sparkSession.sparkContext.textFile(args.input()+"/parts.tbl")
+            val partRDD = sparkSession.sparkContext.textFile(args.input()+"/part.tbl")
             val supplierRDD = sparkSession.sparkContext.textFile(args.input()+"/supplier.tbl")
             
             val lineItemProjection = lineitemRDD.map(line => line.split('|'))
@@ -72,17 +72,18 @@ object Q3{
             lineItemProjection.filter{case (key,value) => partkeysMap.contains(key._1)}
                 .filter{case (key,value) => supplierMap.contains(key._2)}
                 .map{case (key,value) => {
-                    val p_name = partkeysMap.get(key._1)
-                    val s_name = supplierMap.get(key._2)
+                    val p_name = partkeysMap.getOrElse(key._1,"Error")
+                    val s_name = supplierMap.getOrElse(key._2,"Error")
                     (value, (p_name, s_name))
-                }}
+                }}.sortBy(_._1)
+                .take(limit)
             
         }else{
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
-            val partRDD = sparkSession.read.parquet(args.input()+"/parts").rdd
+            val partRDD = sparkSession.read.parquet(args.input()+"/part").rdd
             val supplierRDD = sparkSession.read.parquet(args.input()+"/supplier").rdd
 
-            val lineItemProjection:RDD[((Int Int), String)] = lineitemRDD.filter(_.getString(l_shipdatePos).equals(date))
+            val lineItemProjection:RDD[((Int,Int), Int)] = lineitemRDD.filter(_.getString(l_shipdatePos).equals(date))
                                                                     .map(row => ( (row.getInt(l_partkeyPos), row.getInt(l_suppkeyPos)), row.getInt(l_orderkeyPos) ))
                                         
             val partProjection = partRDD.map(row => (row.getInt(p_partkeyPos), row.getString(p_namePos)))
@@ -94,14 +95,15 @@ object Q3{
             lineItemProjection.filter{case (key,value) => partkeysMap.contains(key._1)}
                 .filter{case (key,value) => supplierMap.contains(key._2)}
                 .map{case (key,value) => {
-                    val p_name = partkeysMap.get(key._1)
-                    val s_name = supplierMap.get(key._2)
+                    val p_name = partkeysMap.getOrElse(key._1,"Error")
+                    val s_name = supplierMap.getOrElse(key._2,"Error")
                     (value, (p_name, s_name))
-                }}
+                }}.sortBy(_._1)
+                .take(limit)
 
         }
 
-        queryResult.foreach(row => println("("+row._1+","+row._2._1+row._2._2+")"))
+        queryResult.foreach(row => println("("+row._1+","+row._2._1+","+row._2._2+")"))
         
     }
 } 
