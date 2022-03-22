@@ -7,6 +7,7 @@ import org.apache.spark.SparkConf
 import scala.collection.Map
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.Dataset
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.rdd.PairRDDFunctions
 import org.rogach.scallop._
@@ -45,30 +46,38 @@ object Q2{
             val ordersRDD = sparkSession.sparkContext.textFile(args.input()+"/orders.tbl")
             
             val lineItemProjection = lineitemRDD.map(row => row.split('|'))
-                .filter(row.apply(10).equals(date))
+                .filter(_.apply(10).equals(date))
                 .map(row => (row.apply(0), row.apply(10)))
 
             val ordersProjection = ordersRDD.map(row => {
                 val arr = row.split('|')
                 (arr.apply(0), arr.apply(5))
-            }
+            })
 
             lineItemProjection.cogroup(ordersProjection)
-                .filter((key,value) => value.length==2)
-                .map((key,value) => (value.apply(1), key))
-                .sortby(_._2)
+                .filter(_._2._1.size > 0)
+                .filter(_._2._2.size > 0)
+                .map{case (o_clerk,value) => {
+                    val o_orderkey = value._2.toList
+                    (o_orderkey, o_clerk)
+                }}
+                .sortBy(_._2)
                 .take(limit)
             
         }else{
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
             val ordersRDD = sparkSession.read.parquet(args.input()+"/orders").rdd
-            val lineItemProjection = lineitemRDD.filter(row.getString(10).equals(date)).map(row => (row.apply(0), row.apply(10)))
-            val ordersProjection = ordersRDD.map(row => (row.apply(0), row.apply(5)))
+            val lineItemProjection:RDD[(Int, String)] = lineitemRDD.filter(_.getString(10).equals(date)).map(row => (row.apply(0), row.apply(10)))
+            val ordersProjection:RDD[(Int, String)] = ordersRDD.map(row => (row.apply(0), row.apply(5)))
 
             lineItemProjection.cogroup(ordersProjection)
-                .filter((key,value) => value.length==2)
-                .map((key,value) => (value.apply(1), key))
-                .sortby(_._2)
+                .filter(_._2._1.size > 0)
+                .filter(_._2._2.size > 0)
+                .map{case (o_clerk,value) => {
+                    val o_orderkey = value._2.toList
+                    (o_orderkey, o_clerk)
+                }}
+                .sortBy(_._2)
                 .take(limit)
         }
 
