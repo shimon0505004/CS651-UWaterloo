@@ -90,17 +90,18 @@ object Q4{
                 }}
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
-                    customerMap.getOrElse(o_custkey, 0)
+                    customerMap.getOrElse(o_custkey, -1)
                 }}
-                .filter(_ <= 0)
+                .filter(_ >= 0)
                 .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
                 .map(n_nationkey => (n_nationkey, 1))
                 .reduceByKey(_ + _)
-                .sortBy(_._1)
                 .map{case (n_nationkey, count) =>{
                     val n_name = nationMap.getOrElse(n_nationkey,"")
-                    ((n_nationkey, n_name), count)
+                    (n_nationkey, (n_name, count))
                 }}
+                .toSeq
+                .sortBy(_._1.toInt)
             
         }else{            
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
@@ -127,23 +128,25 @@ object Q4{
                 }}
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
-                    customerMap.getOrElse(o_custkey, 0)
+                    customerMap.getOrElse(o_custkey, -1)
                 }}
-                .filter(_ <= 0)
+                .filter(_ >= 0)
                 .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
                 .map(n_nationkey => (n_nationkey, 1))
                 .reduceByKey(_ + _)
-                .sortBy(_._1)
                 .map{case (n_nationkey, count) =>{
                     val n_name = nationMap.getOrElse(n_nationkey,"")
-                    ((n_nationkey, n_name), count)
+                    (n_nationkey, (n_name, count))
                 }}
+                .toSeq
+                .sortBy(_._1.toInt)
+
         }
 
         queryResult.foreach{case (key,value) => {
-            val n_nationkey = key._1
-            val n_name = key._2
-            val count = value
+            val n_nationkey = key
+            val n_name = value._1
+            val count = value._2
             println("("+n_nationkey+","+n_name+","+count+")")
         }}
         
