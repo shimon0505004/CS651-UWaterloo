@@ -15,7 +15,7 @@ import java.io._
 import math._
 
 class Q5Conf(args: Seq[String]) extends ScallopConf(args) {
-    mainOptions = Seq(input, date, text, parquet)
+    mainOptions = Seq(input, text, parquet)
     val input = opt[String]("input", descr = "Input path", required = true)
     val text = opt[Boolean]("text", descr = "text command processes input as text file", required = false)
     val parquet = opt[Boolean]("parquet", descr = "parquet command processes input as parquet file", required = false)
@@ -40,6 +40,7 @@ object Q5{
         val o_orderkeyPos = 0
         
         val l_orderkeyPos = 0
+        val l_quantity = 4
         val l_shipdatePos = 10
 
         val c_custkeyPos = 0
@@ -59,7 +60,7 @@ object Q5{
             val nationRDD = sparkSession.sparkContext.textFile(args.input()+"/nation.tbl")
 
             val lineItemProjection = lineitemRDD.map(line => line.split('|'))
-                .map(line => (line.apply(l_orderkeyPos).toInt, line.apply(l_shipdatePos).substring(0,7)))
+                .map(line => (line.apply(l_orderkeyPos).toInt, (line.apply(l_shipdatePos).substring(0,7), line.apply(l_quantity).toInt)))
 
             val ordersProjection = ordersRDD.map(line => {
                 val row = line.split('|')
@@ -89,14 +90,14 @@ object Q5{
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
                     val c_nationkey = customerMap.getOrElse(o_custkey, -1)
-                    val month = value._1.toList.apply(0)
-                    (c_nationkey, month)
+                    val month = value._1._1.toList.apply(0)
+                    val quantity = value._1._2.toList.apply(0)
+                    ((c_nationkey,month), quantity)
                 }}
-                .filter{case (c_nationkey, month) => nationMap.contains(c_nationkey)}
-                .map{case (c_nationkey, month) => ((c_nationkey, month), 1))}
+                .filter{case ((c_nationkey,month), quantity) => nationMap.contains(c_nationkey)}
                 .reduceByKey(_ + _)
-                .sortBy(_.1._2)
-                .map{case ((n_nationkey, month), count) => ((n_nationkey, nationMap.getOrElse(n_nationkey,"")), (month, count)))}
+                .sortBy(_._1._2)
+                .map{case ((n_nationkey, month), count) => ((n_nationkey, nationMap.getOrElse(n_nationkey,"")), (month, count))}
                 .collect          
             
         }else{            
@@ -105,7 +106,7 @@ object Q5{
             val customerRDD = sparkSession.read.parquet(args.input()+"/customer").rdd
             val nationRDD = sparkSession.read.parquet(args.input()+"/nation").rdd
 
-            val lineItemProjection = lineitemRDD.map(row => (row.getInt(l_orderkeyPos), row.getString(l_shipdatePos).substring(0,7)))
+            val lineItemProjection = lineitemRDD.map(row => (row.getInt(l_orderkeyPos), (row.getString(l_shipdatePos).substring(0,7) , row.getInt(l_quantity))))
 
             val ordersProjection = ordersRDD.map(row => (row.getInt(o_orderkeyPos), row.getInt(o_custkeyPos)))
             val customerProjection = customerRDD.map(row => (row.getInt(c_custkeyPos), row.getInt(c_nationkeyPos)))
@@ -125,15 +126,15 @@ object Q5{
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
                     val c_nationkey = customerMap.getOrElse(o_custkey, -1)
-                    val month = value._1.toList.apply(0)
-                    (c_nationkey, month)
+                    val month = value._1._1.toList.apply(0)
+                    val quantity = value._1._2.toList.apply(0)
+                    ((c_nationkey,month), quantity)
                 }}
-                .filter{case (c_nationkey, month) => nationMap.contains(c_nationkey)}
-                .map{case (c_nationkey, month) => ((c_nationkey, month), 1))}
+                .filter{case ((c_nationkey,month), quantity) => nationMap.contains(c_nationkey)}
                 .reduceByKey(_ + _)
-                .sortBy(_.1._2)
-                .map{case ((n_nationkey, month), count) => ((n_nationkey, nationMap.getOrElse(n_nationkey,"")), (month, count)))}
-                .collect          
+                .sortBy(_._1._2)
+                .map{case ((n_nationkey, month), count) => ((n_nationkey, nationMap.getOrElse(n_nationkey,"")), (month, count))}
+                .collect              
 
         }
 
