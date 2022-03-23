@@ -95,13 +95,7 @@ object Q4{
                 .filter(_ >= 0)
                 .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
                 .map(n_nationkey => (n_nationkey, 1))
-                .reduceByKey(_ + _)
-                .map{case (n_nationkey, count) =>{
-                    val n_name = nationMap.getOrElse(n_nationkey,"")
-                    (n_nationkey.toInt, (n_name, count))
-                }}
-                .sortBy(_._1)
-                
+                .sortByKey()            
             
         }else{            
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
@@ -133,20 +127,12 @@ object Q4{
                 .filter(_ >= 0)
                 .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
                 .map(n_nationkey => (n_nationkey, 1))
-                .reduceByKey(_ + _)
-                .map{case (n_nationkey, count) =>{
-                    val n_name = nationMap.getOrElse(n_nationkey,"")
-                    (n_nationkey.toInt, (n_name, count))
-                }}
-                .sortBy(_._1)
+                .sortByKey()
                 
 
         }
 
-        queryResult.foreach{case (key,value) => {
-            val n_nationkey = key
-            val n_name = value._1
-            val count = value._2
+        queryResult.foreach{case (n_nationkey,(n_name, count)) => {
             println("("+n_nationkey+","+n_name+","+count+")")
         }}
         
