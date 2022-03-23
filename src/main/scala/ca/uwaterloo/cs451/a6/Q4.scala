@@ -100,8 +100,7 @@ object Q4{
                     val n_name = nationMap.getOrElse(n_nationkey,"")
                     (n_nationkey, (n_name, count))
                 }}
-                .toSeq
-                .sortBy(_._1.toInt)
+                .sortBy(_._1)
             
         }else{            
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
@@ -138,8 +137,7 @@ object Q4{
                     val n_name = nationMap.getOrElse(n_nationkey,"")
                     (n_nationkey, (n_name, count))
                 }}
-                .toSeq
-                .sortBy(_._1.toInt)
+                .sortBy(_._1)
 
         }
 
