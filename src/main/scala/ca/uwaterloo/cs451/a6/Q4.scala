@@ -94,6 +94,7 @@ object Q4{
                 }}
                 .filter(_ >= 0)
                 .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
+                .sort(_)
                 .map(n_nationkey => (n_nationkey, 1))
                 .reduceByKey(_ + _)
                 .map{case (n_nationkey, count) =>{
@@ -131,6 +132,7 @@ object Q4{
                 }}
                 .filter(_ >= 0)
                 .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
+                .sort(_)
                 .map(n_nationkey => (n_nationkey, 1))
                 .reduceByKey(_ + _)
                 .map{case (n_nationkey, count) =>{
