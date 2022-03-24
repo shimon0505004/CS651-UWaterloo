@@ -25,16 +25,7 @@ class Q5Conf(args: Seq[String]) extends ScallopConf(args) {
 object Q5{
     val log = Logger.getLogger(getClass().getName())
 
-    def main(argv: Array[String]){
-        val args = new Q5Conf(argv)
-
-        log.info("Input: " + args.input())
-        log.info("Is input processed as text file: " + args.text())
-        log.info("Is input processed as parquet file: " + args.parquet())
-
-        val sparkSession = SparkSession.builder.appName("A6Q2").getOrCreate
-
-        val isParquet:Boolean = args.parquet()
+    def queryResult(inputFileLocation, isParquet, sparkSession , countryCode){
 
         val o_custkeyPos = 1
         val o_orderkeyPos = 0
@@ -49,15 +40,12 @@ object Q5{
         val n_nationkeyPos = 0
         val n_namePos = 1
 
-        val canadaCountryCode = 3
-        val usaCountryCode = 24
-
         val queryResult  = if(!isParquet){
             //Process as TXT file
-            val lineitemRDD = sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
-            val ordersRDD = sparkSession.sparkContext.textFile(args.input()+"/orders.tbl")
-            val customerRDD = sparkSession.sparkContext.textFile(args.input()+"/customer.tbl")
-            val nationRDD = sparkSession.sparkContext.textFile(args.input()+"/nation.tbl")
+            val lineitemRDD = sparkSession.sparkContext.textFile(inputFileLocation+"/lineitem.tbl")
+            val ordersRDD = sparkSession.sparkContext.textFile(inputFileLocation+"/orders.tbl")
+            val customerRDD = sparkSession.sparkContext.textFile(inputFileLocation+"/customer.tbl")
+            val nationRDD = sparkSession.sparkContext.textFile(inputFileLocation+"/nation.tbl")
 
             val lineItemProjection = lineitemRDD.map(line => line.split('|'))
                 .map(line => (line.apply(l_orderkeyPos).toInt, (line.apply(l_shipdatePos).substring(0,7), line.apply(l_quantity).toInt)))
@@ -75,7 +63,7 @@ object Q5{
             val nationProjection = nationRDD.map(line => {
                 val row = line.split('|')
                 (row.apply(n_nationkeyPos).toInt, row.apply(n_namePos))
-            }).filter{case(n_nationkey, n_name) => (n_nationkey == canadaCountryCode) }
+            }).filter{case(n_nationkey, n_name) => (n_nationkey == countryCode) }
 
             val customerMap = customerProjection.collectAsMap()
             val nationMap = nationProjection.collectAsMap()
@@ -90,8 +78,9 @@ object Q5{
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
                     val c_nationkey = customerMap.getOrElse(o_custkey, -1)
-                    val month = value._1._1.toList.apply(0)
-                    val quantity = value._1._2.toList.apply(0)
+                    val month_qty_pairs = value._1.toList
+                    val month = month_qty_pairs.apply(0)._1
+                    val quantity = month_qty_pairs.apply(0)._2
                     ((c_nationkey,month), quantity)
                 }}
                 .filter{case ((c_nationkey,month), quantity) => nationMap.contains(c_nationkey)}
@@ -101,17 +90,17 @@ object Q5{
                 .collect          
             
         }else{            
-            val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
-            val ordersRDD = sparkSession.read.parquet(args.input()+"/orders").rdd
-            val customerRDD = sparkSession.read.parquet(args.input()+"/customer").rdd
-            val nationRDD = sparkSession.read.parquet(args.input()+"/nation").rdd
+            val lineitemRDD = sparkSession.read.parquet(inputFileLocation+"/lineitem").rdd
+            val ordersRDD = sparkSession.read.parquet(inputFileLocation+"/orders").rdd
+            val customerRDD = sparkSession.read.parquet(inputFileLocation+"/customer").rdd
+            val nationRDD = sparkSession.read.parquet(inputFileLocation+"/nation").rdd
 
-            val lineItemProjection = lineitemRDD.map(row => (row.getInt(l_orderkeyPos), (row.getString(l_shipdatePos).substring(0,7) , row.getInt(l_quantity))))
+            val lineItemProjection = lineitemRDD.map(row => (row.getInt(l_orderkeyPos), (row.getString(l_shipdatePos).substring(0,7) , row.getDouble(l_quantity).toInt)))
 
             val ordersProjection = ordersRDD.map(row => (row.getInt(o_orderkeyPos), row.getInt(o_custkeyPos)))
             val customerProjection = customerRDD.map(row => (row.getInt(c_custkeyPos), row.getInt(c_nationkeyPos)))
             val nationProjection = nationRDD.map(row => (row.getInt(n_nationkeyPos), row.getString(n_namePos)))
-                                    .filter{case(n_nationkey, n_name) => (n_nationkey == canadaCountryCode) }
+                                    .filter{case(n_nationkey, n_name) => (n_nationkey == countryCode) }
 
             val customerMap = customerProjection.collectAsMap()
             val nationMap = nationProjection.collectAsMap()
@@ -126,8 +115,9 @@ object Q5{
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
                     val c_nationkey = customerMap.getOrElse(o_custkey, -1)
-                    val month = value._1._1.toList.apply(0)
-                    val quantity = value._1._2.toList.apply(0)
+                    val month_qty_pairs = value._1.toList
+                    val month = month_qty_pairs.apply(0)._1
+                    val quantity = month_qty_pairs.apply(0)._2
                     ((c_nationkey,month), quantity)
                 }}
                 .filter{case ((c_nationkey,month), quantity) => nationMap.contains(c_nationkey)}
@@ -135,10 +125,32 @@ object Q5{
                 .sortBy(_._1._2)
                 .map{case ((n_nationkey, month), count) => ((n_nationkey, nationMap.getOrElse(n_nationkey,"")), (month, count))}
                 .collect              
-
         }
 
-        queryResult.foreach{case ((n_nationkey, n_name), (month, count)) => {
+        queryResult
+    }
+
+    def main(argv: Array[String]){
+        val args = new Q5Conf(argv)
+
+        log.info("Input: " + args.input())
+        log.info("Is input processed as text file: " + args.text())
+        log.info("Is input processed as parquet file: " + args.parquet())
+
+        val sparkSession = SparkSession.builder.appName("A6Q2").getOrCreate
+        val isParquet:Boolean = args.parquet()
+
+        val canadaCountryCode = 3
+        val usaCountryCode = 24
+        
+        val canadaQueryResult = queryResult(args.input(), isParquet, sparkSession, canadaCountryCode)
+        val usaQueryResult = queryResult(args.input(), isParquet, sparkSession, canadaCountryCode)
+
+        canadaQueryResult.foreach{case ((n_nationkey, n_name), (month, count)) => {
+            println("("+n_nationkey+","+n_name+","+month+","+count+")")
+        }}
+
+        usaQueryResult.foreach{case ((n_nationkey, n_name), (month, count)) => {
             println("("+n_nationkey+","+n_name+","+month+","+count+")")
         }}
         
