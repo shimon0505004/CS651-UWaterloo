@@ -37,13 +37,27 @@ object Q1{
 
         val isParquet:Boolean = args.parquet()
 
+        val l_shipdatePos = 10
+        val l_quantityPos = 4
+
         val queryResult  = if(!isParquet){
             //Process as TXT file
             val lineitemRDD = sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
-            lineitemRDD.map(row => row.split('|').apply(10)).filter(_.equals(date)).count()
+            lineitemRDD.filter(row => row.split('|').apply(l_shipdatePos).equals(date))
+                        .map(row => {
+                            val arr = row.split('|')
+                            val l_quantity = arr.apply(l_quantityPos).toLong
+                            l_quantity
+                        })
+                        .count()
         }else{
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
-            lineitemRDD.map(row => row.getString(10)).filter(_.equals(date)).count()
+            lineitemRDD.filter(row => row.getString(l_shipdatePos).equals(date))
+                        .map(row => {
+                            val l_quantity = row.getDouble(l_quantityPos).toLong
+                            l_quantity
+                        })
+                        .count()
         }
 
         println(s"ANSWER=${queryResult}")
