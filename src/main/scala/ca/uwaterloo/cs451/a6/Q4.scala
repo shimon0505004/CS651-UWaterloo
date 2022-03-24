@@ -113,11 +113,11 @@ object Q4{
                                             }}
                                             .map{case (key,value) => {
                                                 val o_custkey = value._2.toList.apply(0)
-                                                val n_nationkey = broadcastcustomerMap.value.getOrElse(o_custkey, -1)
-                                                val l_quantity = value._1.toList.apply(0)
-                                                (n_nationkey, l_quantity)
+                                                val n_nationkey = broadcastcustomerMap.value.getOrElse(o_custkey, -1)                                                
+                                                n_nationkey
                                             }}
-                                            .filter{case (n_nationkey, l_quantity) => broadcastnationMap.value.contains(n_nationkey)}
+                                            .filter{n_nationkey => broadcastnationMap.value.contains(n_nationkey)}
+                                            .map(n_nationkey => (n_nationkey, 1))
                                             .reduceByKey(_ + _)
                                             .sortByKey()
                                             .map{case (n_nationkey, count) => ((n_nationkey, broadcastnationMap.value.getOrElse(n_nationkey,"")), count)}
@@ -127,7 +127,7 @@ object Q4{
             println("("+n_nationkey+","+n_name+","+count+")")
         }}
         
-
+        /*
         if(isParquet){
             val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
             val ordersDF = sparkSession.read.parquet(args.input()+"/orders")
@@ -141,5 +141,6 @@ object Q4{
             val result = sparkSession.sql("select n_nationkey, n_name, count(*) from lineitem, orders, customer, nation where l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = n_nationkey and l_shipdate = '"+date+"' group by n_nationkey, n_name order by n_nationkey asc").show()
 
         }
+        */
     }
 } 
