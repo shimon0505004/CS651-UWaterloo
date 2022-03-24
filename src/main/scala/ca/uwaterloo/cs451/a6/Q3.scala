@@ -52,57 +52,68 @@ object Q3{
         val s_namePos = 1
         val p_namePos = 1
         
+        val lineItemProjection = if(!isParquet){
+            sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
+                        .map(line => line.split('|'))
+                        .filter(_.apply(l_shipdatePos).equals(date))
+                        .map(line => ((line.apply(l_partkeyPos).toInt, line.apply(l_suppkeyPos).toInt),  line.apply(l_orderkeyPos).toInt))
 
-        val queryResult  = if(!isParquet){
-            //Process as TXT file
-            val lineitemRDD = sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
-            val partRDD = sparkSession.sparkContext.textFile(args.input()+"/part.tbl")
-            val supplierRDD = sparkSession.sparkContext.textFile(args.input()+"/supplier.tbl")
-            
-            val lineItemProjection = lineitemRDD.map(line => line.split('|'))
-                .filter(_.apply(l_shipdatePos).equals(date))
-                .map(line => ((line.apply(l_partkeyPos).toInt, line.apply(l_suppkeyPos).toInt),  line.apply(l_orderkeyPos).toInt))
-
-            val partProjection = partRDD.map(line => line.split('|')).map(line => (line.apply(p_partkeyPos).toInt , line.apply(p_namePos)))
-            val supplierProjection = supplierRDD.map(line => line.split('|')).map(line => (line.apply(s_suppkeyPos).toInt , line.apply(s_namePos)))
-
-            val partkeysMap = partProjection.collectAsMap()
-            val supplierMap = supplierProjection.collectAsMap()
-
-            lineItemProjection.filter{case (key,value) => partkeysMap.contains(key._1)}
-                .filter{case (key,value) => supplierMap.contains(key._2)}
-                .map{case (key,value) => {
-                    val p_name = partkeysMap.getOrElse(key._1,"Error")
-                    val s_name = supplierMap.getOrElse(key._2,"Error")
-                    (value, (p_name, s_name))
-                }}.sortBy(_._1)
-                .take(limit)
-            
         }else{
-            val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
-            val partRDD = sparkSession.read.parquet(args.input()+"/part").rdd
-            val supplierRDD = sparkSession.read.parquet(args.input()+"/supplier").rdd
-
-            val lineItemProjection:RDD[((Int,Int), Int)] = lineitemRDD.filter(_.getString(l_shipdatePos).equals(date))
-                                                                    .map(row => ( (row.getInt(l_partkeyPos), row.getInt(l_suppkeyPos)), row.getInt(l_orderkeyPos) ))
-                                        
-            val partProjection = partRDD.map(row => (row.getInt(p_partkeyPos), row.getString(p_namePos)))
-            val supplierProjection = supplierRDD.map(row => (row.getInt(s_suppkeyPos), row.getString(s_namePos)))
-
-            val partkeysMap = partProjection.collectAsMap()
-            val supplierMap = supplierProjection.collectAsMap()
-
-            lineItemProjection.filter{case (key,value) => partkeysMap.contains(key._1)}
-                .filter{case (key,value) => supplierMap.contains(key._2)}
-                .map{case (key,value) => {
-                    val p_name = partkeysMap.getOrElse(key._1,"Error")
-                    val s_name = supplierMap.getOrElse(key._2,"Error")
-                    (value, (p_name, s_name))
-                }}.sortBy(_._1)
-                .take(limit)
-
+            sparkSession.read.parquet(args.input()+"/lineitem").rdd
+                        .filter(_.getString(l_shipdatePos).equals(date))
+                        .map(row => ( (row.getInt(l_partkeyPos), row.getInt(l_suppkeyPos)), row.getInt(l_orderkeyPos) ))
         }
 
-        queryResult.foreach(row => println("("+row._1+","+row._2._1+","+row._2._2+")"))        
+        val partProjection = if(!isParquet){
+            sparkSession.sparkContext.textFile(args.input()+"/part.tbl")
+                        .map(line =>  {
+                            val arr = line.split('|')
+                            (arr.apply(p_partkeyPos).toInt , arr.apply(p_namePos))
+                        })
+        }else{
+            sparkSession.read.parquet(args.input()+"/part").rdd
+                        .map(row => (row.getInt(p_partkeyPos), row.getString(p_namePos)))
+        }
+
+        val supplierProjection = if(!isParquet){
+            sparkSession.sparkContext.textFile(args.input()+"/supplier.tbl")
+                        .map(line => {
+                            val arr = line.split('|')
+                            (arr.apply(s_suppkeyPos).toInt , arr.apply(s_namePos))         
+                        })
+        }else{
+            sparkSession.read.parquet(args.input()+"/supplier").rdd
+                        .map(row => (row.getInt(s_suppkeyPos), row.getString(s_namePos)))
+        }
+
+        val partkeysMap = partProjection.collectAsMap()
+        val supplierMap = supplierProjection.collectAsMap()
+
+        val broadcastpartkeysMap = sparkSession.sparkContext.broadcast(partkeysMap)
+        val broadcastsupplierMap = sparkSession.sparkContext.broadcast(supplierMap)
+
+        val queryResult = lineItemProjection.filter{case (key,value) => (broadcastpartkeysMap.value.contains(key._1) && broadcastsupplierMap.value.contains(key._2)) }
+                                            .map{case (key,value) => {
+                                                val p_name = broadcastpartkeysMap.value.getOrElse(key._1,"")
+                                                val s_name = broadcastsupplierMap.value.getOrElse(key._2,"")
+                                                (value, (p_name, s_name))
+                                            }}.sortBy(_._1)
+                                            .take(limit)
+
+        queryResult.foreach{case (value, (p_name, s_name)) => println("("+value+","+p_name+","+s_name+")")}  
+
+        /*
+        //For verifying results of Q3
+        if(isParquet){
+            val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
+            val partDF = sparkSession.read.parquet(args.input()+"/part")
+            val supplierDF = sparkSession.read.parquet(args.input()+"/supplier")
+            lineitemDF.createOrReplaceTempView("lineitem")
+            partDF.createOrReplaceTempView("part")
+            supplierDF.createOrReplaceTempView("supplier")
+            val result = sparkSession.sql("select l_orderkey, p_name, s_name from lineitem, part, supplier where l_partkey = p_partkey and l_suppkey = s_suppkey and l_shipdate = \'" + date + "\' order by l_orderkey asc limit 20").show()
+        }
+        */
+
     }
 } 
