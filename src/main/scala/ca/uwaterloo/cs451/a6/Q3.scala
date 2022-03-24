@@ -103,7 +103,6 @@ object Q3{
 
         }
 
-        queryResult.foreach(row => println("("+row._1+","+row._2._1+","+row._2._2+")"))
-        
+        queryResult.foreach(row => println("("+row._1+","+row._2._1+","+row._2._2+")"))        
     }
 } 
