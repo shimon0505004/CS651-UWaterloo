@@ -63,9 +63,9 @@ object Q2{
                 .filter(_._2._2.size > 0)
                 .map{case (o_orderkey,value) => {
                     val o_clerk = value._2.toList.apply(0)
-                    (o_clerk, (value._1.toList.apply(0), o_orderkey))
+                    (o_clerk, o_orderkey)
                 }}
-                .sortBy(_._2._2)
+                .sortBy(_._2)
                 .take(limit)
             
         }else{
@@ -82,13 +82,13 @@ object Q2{
                 .filter(_._2._2.size > 0)
                 .map{case (o_orderkey,value) => {
                     val o_clerk = value._2.toList.apply(0)
-                    (o_clerk, (value._1.toList.apply(0), o_orderkey))
+                    (o_clerk, o_orderkey)
                 }}
-                .sortBy(_._2._2)
+                .sortBy(_._2)
                 .take(limit)
         }
 
         queryResult.foreach(row => println("("+row._1+","+row._2+")"))
-        
+
     }
 } 
