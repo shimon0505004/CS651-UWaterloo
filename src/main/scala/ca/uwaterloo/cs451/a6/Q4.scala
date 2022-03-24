@@ -44,6 +44,7 @@ object Q4{
         val o_orderkeyPos = 0
         
         val l_orderkeyPos = 0
+        val l_quantityPos = 4
         val l_shipdatePos = 10
 
         val c_custkeyPos = 0
@@ -61,7 +62,7 @@ object Q4{
 
             val lineItemProjection = lineitemRDD.map(line => line.split('|'))
                 .filter(_.apply(l_shipdatePos).equals(date))
-                .map(line => (line.apply(l_orderkeyPos).toInt, line.apply(l_shipdatePos)))
+                .map(line => (line.apply(l_orderkeyPos).toInt, line.apply(l_quantityPos).toInt))
 
             val ordersProjection = ordersRDD.map(line => {
                 val row = line.split('|')
@@ -90,11 +91,11 @@ object Q4{
                 }}
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
-                    customerMap.getOrElse(o_custkey, -1)
+                    val n_nationkey = customerMap.getOrElse(o_custkey, -1)
+                    val l_quantity = value._1.toList.apply(0)
+                    (n_nationkey, l_quantity)
                 }}
-                .filter(_ >= 0)
-                .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
-                .map(n_nationkey => (n_nationkey.toInt, 1))
+                .filter{case (n_nationkey, l_quantity) => nationMap.contains(n_nationkey)}
                 .reduceByKey(_ + _)
                 .sortByKey()
                 .map{case (n_nationkey, count) => ((n_nationkey, nationMap.getOrElse(n_nationkey,"")), count)}
@@ -107,7 +108,7 @@ object Q4{
             val nationRDD = sparkSession.read.parquet(args.input()+"/nation").rdd
 
             val lineItemProjection = lineitemRDD.filter(_.getString(l_shipdatePos).equals(date))
-                .map(row => (row.getInt(l_orderkeyPos), row.getString(l_shipdatePos)))
+                .map(row => (row.getInt(l_orderkeyPos), row.getDouble(l_quantityPos).toInt))
 
             val ordersProjection = ordersRDD.map(row => (row.getInt(o_orderkeyPos), row.getInt(o_custkeyPos)))
             val customerProjection = customerRDD.map(row => (row.getInt(c_custkeyPos), row.getInt(c_nationkeyPos)))
@@ -125,16 +126,15 @@ object Q4{
                 }}
                 .map{case (key,value) => {
                     val o_custkey = value._2.toList.apply(0)
-                    customerMap.getOrElse(o_custkey, -1)
+                    val n_nationkey = customerMap.getOrElse(o_custkey, -1)
+                    val l_quantity = value._1.toList.apply(0)
+                    (n_nationkey, l_quantity)
                 }}
-                .filter(_ >= 0)
-                .filter{case (c_nationkey) => nationMap.contains(c_nationkey)}
-                .map(n_nationkey => (n_nationkey.toInt, 1))
+                .filter{case (n_nationkey, l_quantity) => nationMap.contains(n_nationkey)}
                 .reduceByKey(_ + _)
                 .sortByKey()
                 .map{case (n_nationkey, count) => ((n_nationkey, nationMap.getOrElse(n_nationkey,"")), count)}
-                .collect
-
+                .collect    
         }
 
         queryResult.foreach{case ((n_nationkey, n_name), count) => {

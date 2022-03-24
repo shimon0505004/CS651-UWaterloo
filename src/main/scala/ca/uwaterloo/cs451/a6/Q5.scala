@@ -25,13 +25,14 @@ class Q5Conf(args: Seq[String]) extends ScallopConf(args) {
 object Q5{
     val log = Logger.getLogger(getClass().getName())
 
-    def queryResult(inputFileLocation, isParquet, sparkSession , countryCode){
+    def queryResult(inputFileLocation:String, isParquet:Boolean, sparkSession:SparkSession , countryCode:Int)
+        :Array[((Int, String), (String, Int))] = {
 
         val o_custkeyPos = 1
         val o_orderkeyPos = 0
         
         val l_orderkeyPos = 0
-        val l_quantity = 4
+        val l_quantityPos = 4
         val l_shipdatePos = 10
 
         val c_custkeyPos = 0
@@ -40,7 +41,7 @@ object Q5{
         val n_nationkeyPos = 0
         val n_namePos = 1
 
-        val queryResult  = if(!isParquet){
+        val result  = if(!isParquet){
             //Process as TXT file
             val lineitemRDD = sparkSession.sparkContext.textFile(inputFileLocation+"/lineitem.tbl")
             val ordersRDD = sparkSession.sparkContext.textFile(inputFileLocation+"/orders.tbl")
@@ -48,7 +49,7 @@ object Q5{
             val nationRDD = sparkSession.sparkContext.textFile(inputFileLocation+"/nation.tbl")
 
             val lineItemProjection = lineitemRDD.map(line => line.split('|'))
-                .map(line => (line.apply(l_orderkeyPos).toInt, (line.apply(l_shipdatePos).substring(0,7), line.apply(l_quantity).toInt)))
+                .map(line => (line.apply(l_orderkeyPos).toInt, (line.apply(l_shipdatePos).substring(0,7), line.apply(l_quantityPos).toInt)))
 
             val ordersProjection = ordersRDD.map(line => {
                 val row = line.split('|')
@@ -95,7 +96,7 @@ object Q5{
             val customerRDD = sparkSession.read.parquet(inputFileLocation+"/customer").rdd
             val nationRDD = sparkSession.read.parquet(inputFileLocation+"/nation").rdd
 
-            val lineItemProjection = lineitemRDD.map(row => (row.getInt(l_orderkeyPos), (row.getString(l_shipdatePos).substring(0,7) , row.getDouble(l_quantity).toInt)))
+            val lineItemProjection = lineitemRDD.map(row => (row.getInt(l_orderkeyPos), (row.getString(l_shipdatePos).substring(0,7) , row.getDouble(l_quantityPos).toInt)))
 
             val ordersProjection = ordersRDD.map(row => (row.getInt(o_orderkeyPos), row.getInt(o_custkeyPos)))
             val customerProjection = customerRDD.map(row => (row.getInt(c_custkeyPos), row.getInt(c_nationkeyPos)))
@@ -127,7 +128,7 @@ object Q5{
                 .collect              
         }
 
-        queryResult
+        result
     }
 
     def main(argv: Array[String]){
@@ -144,7 +145,7 @@ object Q5{
         val usaCountryCode = 24
         
         val canadaQueryResult = queryResult(args.input(), isParquet, sparkSession, canadaCountryCode)
-        val usaQueryResult = queryResult(args.input(), isParquet, sparkSession, canadaCountryCode)
+        val usaQueryResult = queryResult(args.input(), isParquet, sparkSession, usaCountryCode)
 
         canadaQueryResult.foreach{case ((n_nationkey, n_name), (month, count)) => {
             println("("+n_nationkey+","+n_name+","+month+","+count+")")
