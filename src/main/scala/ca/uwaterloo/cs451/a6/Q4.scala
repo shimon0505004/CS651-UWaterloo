@@ -62,7 +62,7 @@ object Q4{
         }else{
             sparkSession.read.parquet(args.input()+"/lineitem").rdd
                         .filter(_.getString(l_shipdatePos).equals(date))
-                        .map(row => (row.getInt(l_orderkeyPos), row.getString(l_quantityPos).toLong))
+                        .map(row => (row.getInt(l_orderkeyPos), row.getDouble(l_quantityPos).toLong))
         }
 
         val ordersProjection = if(!isParquet){
@@ -127,5 +127,19 @@ object Q4{
             println("("+n_nationkey+","+n_name+","+count+")")
         }}
         
+
+        if(isParquet){
+            val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
+            val ordersDF = sparkSession.read.parquet(args.input()+"/orders")
+            val customreDF = sparkSession.read.parquet(args.input()+"/customer")
+            val nationDF = sparkSession.read.parquet(args.input()+"/nation")
+
+            lineitemDF.createOrReplaceTempView("lineitem")
+            ordersDF.createOrReplaceTempView("orders")
+            customreDF.createOrReplaceTempView("customer")
+            nationDF.createOrReplaceTempView("nation")
+            val result = sparkSession.sql("select n_nationkey, n_name, count(*) from lineitem, orders, customer, nation where l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = n_nationkey and l_shipdate = '"+date+"' group by n_nationkey, n_name order by n_nationkey asc").show()
+
+        }
     }
 } 
