@@ -62,7 +62,7 @@ object Q4{
 
             val lineItemProjection = lineitemRDD.map(line => line.split('|'))
                 .filter(_.apply(l_shipdatePos).equals(date))
-                .map(line => (line.apply(l_orderkeyPos).toInt, line.apply(l_quantityPos).toInt))
+                .map(line => (line.apply(l_orderkeyPos).toInt, line.apply(l_quantityPos).toLong))
 
             val ordersProjection = ordersRDD.map(line => {
                 val row = line.split('|')
@@ -108,7 +108,7 @@ object Q4{
             val nationRDD = sparkSession.read.parquet(args.input()+"/nation").rdd
 
             val lineItemProjection = lineitemRDD.filter(_.getString(l_shipdatePos).equals(date))
-                .map(row => (row.getInt(l_orderkeyPos), row.getDouble(l_quantityPos).toInt))
+                .map(row => (row.getInt(l_orderkeyPos), row.getString(l_quantityPos).toLong))
 
             val ordersProjection = ordersRDD.map(row => (row.getInt(o_orderkeyPos), row.getInt(o_custkeyPos)))
             val customerProjection = customerRDD.map(row => (row.getInt(c_custkeyPos), row.getInt(c_nationkeyPos)))
