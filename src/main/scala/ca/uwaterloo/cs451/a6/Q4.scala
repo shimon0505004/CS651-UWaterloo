@@ -69,7 +69,7 @@ object Q4{
             sparkSession.sparkContext.textFile(args.input()+"/orders.tbl")
                         .map(line => {
                             val row = line.split('|')
-                            (row.apply(c_custkeyPos).toInt, row.apply(c_nationkeyPos).toInt)
+                            (row.apply(o_orderkeyPos).toInt, row.apply(o_custkeyPos).toInt)
                         })
         }else{
             sparkSession.read.parquet(args.input()+"/orders").rdd
