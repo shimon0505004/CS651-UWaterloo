@@ -10,6 +10,7 @@ import org.apache.spark.sql.Dataset
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.Row
 import org.apache.spark.rdd.PairRDDFunctions
+import org.apache.spark.sql.functions._
 import org.rogach.scallop._
 import java.io._  
 import math._
@@ -33,7 +34,6 @@ object Q5{
         log.info("Is input processed as parquet file: " + args.parquet())
 
         val sparkSession = SparkSession.builder.appName("A6Q5").getOrCreate
-        val date:String = args.date()
 
         val isParquet:Boolean = args.parquet()
 
@@ -103,6 +103,7 @@ object Q5{
                         .map(row => {
                             val c_custkey = row.getInt(c_custkeyPos)
                             val c_nationkey = row.getInt(c_nationkeyPos)
+                            (c_custkey, c_nationkey)
                         })
         }
 
@@ -135,12 +136,6 @@ object Q5{
 
 
         val queryResult = lineItemProjection.cogroup(ordersProjection)
-                                            .filter(_._2._1.size > 0)
-                                            .filter(_._2._2.size > 0)
-                                            .filter{case (key,value) => {
-                                                val o_custkey = value._2.toList.apply(0)
-                                                broadcastcustomerMap.value.contains(o_custkey)        
-                                            }}
                                             .filter{case (orderKey, (shipmonths, custkeys)) => ((shipmonths.size > 0) 
                                                                                                 && (custkeys.size > 0) 
                                                                                                 && broadcastcustomerMap.value.contains(custkeys.toList.apply(0)))
@@ -152,15 +147,14 @@ object Q5{
                                                 (n_nationkey, o_shipmonth)
                                             }}
                                             .filter{case(n_nationkey, o_shipmonth) => broadcastnationMap.value.contains(n_nationkey)}
-                                            .map{case(n_nationkey, o_shipmonth) => ((n_nationkey, o_shipmonth), 1)}
+                                            .map{case(n_nationkey, o_shipmonth) => (((n_nationkey, broadcastnationMap.value.getOrElse(n_nationkey,"")), o_shipmonth), 1)}
                                             .reduceByKey(_ + _)
-                                            .map{case((n_nationkey, o_shipmonth), o_shipmentCount) => (n_nationkey, (o_shipmonth, o_shipmentCount))}
-                                            .sortByKey()
-                                            .map{case (n_nationkey, otherdata) => ((n_nationkey, broadcastnationMap.value.getOrElse(n_nationkey,"")), otherdata)}
+                                            .sortBy{case(((n_nationkey, n_name), o_shipmonth), o_shipmentCount) => (n_nationkey, n_name, o_shipmonth)}
+                                            .map{case(((n_nationkey, n_name), o_shipmonth), o_shipmentCount) => ((n_nationkey, n_name), (o_shipmonth, o_shipmentCount))}                                            
                                             .collect
 
         queryResult.foreach{case ((n_nationkey, n_name), (o_shipmonth, o_shipmentCount)) => {
-            println("("+n_nationkey+","+n_name+","+","+o_shipmonth+","+count+")")
+            println("("+n_nationkey+","+n_name+","+o_shipmonth+","+o_shipmentCount+")")
         }}
         
         /*
@@ -170,13 +164,26 @@ object Q5{
             val customreDF = sparkSession.read.parquet(args.input()+"/customer")
             val nationDF = sparkSession.read.parquet(args.input()+"/nation")
 
-            lineitemDF.createOrReplaceTempView("lineitem")
+            val updatedlineitemDF = lineitemDF.select("l_orderkey","l_shipdate")
+                                                .withColumn("l_shipdate", substring(col("l_shipdate"), 0, 7))
+                                                .withColumnRenamed("l_shipdate","l_shipmonth")
+
+            updatedlineitemDF.createOrReplaceTempView("lineitem")
             ordersDF.createOrReplaceTempView("orders")
             customreDF.createOrReplaceTempView("customer")
             nationDF.createOrReplaceTempView("nation")
-            val result = sparkSession.sql("select n_nationkey, n_name, count(*) from lineitem, orders, customer, nation where l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = n_nationkey and l_shipdate = '"+date+"' group by n_nationkey, n_name order by n_nationkey asc").show()
+            val result = sparkSession.sql("""select n_nationkey, n_name, l_shipmonth, count(*) 
+                                                from lineitem, orders, customer, nation 
+                                                where l_orderkey = o_orderkey 
+                                                    and o_custkey = c_custkey 
+                                                    and c_nationkey = n_nationkey 
+                                                    and n_nationkey in (3,24) 
+                                                group by n_nationkey, n_name, l_shipmonth 
+                                                order by n_nationkey, l_shipmonth asc""")
+                                     .show(200, false)
 
         }
         */
+        
     }
 } 
