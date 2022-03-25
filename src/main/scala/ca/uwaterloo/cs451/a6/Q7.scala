@@ -54,8 +54,9 @@ object Q7{
                         .map(row => {
                             val l_orderKey = row.apply(l_orderkeyPos).toInt
                             val l_extendedprice = row.apply(l_extendedpricePos).toDouble
-                            val l_revenue =  l_extendedprice * (1 - row.apply(l_discountPos).toDouble)
-                            (l_orderKey, l_revenue)
+                            val l_discount = row.apply(l_discountPos).toDouble
+                            val l_revenue =  l_extendedprice * (1 - l_discount)
+                            (l_orderKey,l_revenue)
                         })
         }else{
             sparkSession.read.parquet(args.input()+"/lineitem").rdd
@@ -63,7 +64,8 @@ object Q7{
                         .map(row => {
                             val l_orderKey = row.getInt(l_orderkeyPos)
                             val l_extendedprice = row.getDouble(l_extendedpricePos)
-                            val l_revenue =  l_extendedprice * (1 - row.getDouble(l_discountPos))
+                            val l_discount = row.getDouble(l_discountPos)
+                            val l_revenue =  l_extendedprice * (1 - l_discount)
                             (l_orderKey, l_revenue)
                         })
         }
@@ -137,7 +139,7 @@ object Q7{
                                                 ((c_name, l_orderkey, o_orderdate, o_shippriority), l_revenue)
                                             }}
                                             .reduceByKey(_ + _)
-                                            .sortBy{case((c_name, l_orderkey, o_orderdate, o_shippriority), l_revenue) => - l_revenue}
+                                            .sortBy{case((c_name, l_orderkey, o_orderdate, o_shippriority), revenue) => -revenue}
                                             .collect
                                             .take(limit)
                                             
@@ -145,6 +147,7 @@ object Q7{
         queryResult.foreach{case((c_name, l_orderkey, o_orderdate, o_shippriority), revenue) => {
              println("(" + c_name + "," + l_orderkey + "," + revenue + "," + o_orderdate + "," + o_shippriority + ")")
         }}
+        
         
         /*
         if(isParquet){
