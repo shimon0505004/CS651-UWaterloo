@@ -146,7 +146,7 @@ object Q4{
             println("("+n_nationkey+","+n_name+","+count+")")
         }}
         
-        
+        /*
         if(isParquet){
             val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
             val ordersDF = sparkSession.read.parquet(args.input()+"/orders")
@@ -158,8 +158,7 @@ object Q4{
             customreDF.createOrReplaceTempView("customer")
             nationDF.createOrReplaceTempView("nation")
             val result = sparkSession.sql("select n_nationkey, n_name, count(*) from lineitem, orders, customer, nation where l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = n_nationkey and l_shipdate = '"+date+"' group by n_nationkey, n_name order by n_nationkey asc").show()
-
         }
-        
+        */
     }
 } 

@@ -156,7 +156,7 @@ object Q5{
 
         //No cogroup restriction, fixing issues with cogroup merging.
         val queryResult = lineItemProjection.join(ordersProjection)
-                                            .filter{case (orderKey, (shipmonth, custkey)) => broadcastcustomerMap.value.contains(custkeys))}
+                                            .filter{case (orderKey, (shipmonth, custkey)) => broadcastcustomerMap.value.contains(custkey)}
                                             .map{case (orderKey, (o_shipmonth, o_custkey))  => {
                                                 val n_nationkey = broadcastcustomerMap.value.getOrElse(o_custkey, -1)                                                
                                                 (n_nationkey, o_shipmonth)

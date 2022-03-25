@@ -61,5 +61,13 @@ object Q1{
         }
 
         println(s"ANSWER=${queryResult}")
+
+        //For verifying results of Q3
+        if(isParquet){
+            val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
+            lineitemDF.createOrReplaceTempView("lineitem")
+            val result = sparkSession.sql("select count(*) from lineitem where l_shipdate = '" + date + "\'").show()
+        }
+
     }
 } 
