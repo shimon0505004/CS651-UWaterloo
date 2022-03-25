@@ -75,9 +75,12 @@ object Q2{
         
         val queryResult = projection.filter(_._2._1.size > 0)
                                     .filter(_._2._2.size > 0)
-                                    .flatMap{case (o_orderkey,value) => {                                        
-                                        value._2.map(o_clerk => (o_clerk, o_orderkey))
+                                    .flatMap{case (o_orderkey,value) => {
+                                        value._1.flatMap(shipdate => {
+                                            value._2.map(o_clerk => (shipdate, o_clerk, o_orderkey))
+                                        })                                        
                                     }}
+                                    .map{case(shipdate, o_clerk, o_orderkey) => (o_clerk, o_orderkey)}
                                     .sortBy(_._2)
                                     .take(limit)
         
