@@ -34,7 +34,7 @@ object Q4{
         log.info("Is input processed as text file: " + args.text())
         log.info("Is input processed as parquet file: " + args.parquet())
 
-        val sparkSession = SparkSession.builder.appName("A6Q2").getOrCreate
+        val sparkSession = SparkSession.builder.appName("A6Q4").getOrCreate
         val date:String = args.date()
 
         val isParquet:Boolean = args.parquet()
@@ -104,6 +104,7 @@ object Q4{
         val broadcastcustomerMap = sparkSession.sparkContext.broadcast(customerMap)
         val broadcastnationMap = sparkSession.sparkContext.broadcast(nationMap)
 
+        /*
         val queryResult = lineItemProjection.cogroup(ordersProjection)
                                             .filter(_._2._1.size > 0)
                                             .filter(_._2._2.size > 0)
@@ -122,12 +123,30 @@ object Q4{
                                             .sortByKey()
                                             .map{case (n_nationkey, count) => ((n_nationkey, broadcastnationMap.value.getOrElse(n_nationkey,"")), count)}
                                             .collect
+        */
+        //No Cogroup join restriction for this question, using join, cogroup has expansion issues that need to be solved later.
+        val queryResult = lineItemProjection.join(ordersProjection)
+                                            .filter{case (key,value) => {
+                                                val o_custkey = value._2
+                                                broadcastcustomerMap.value.contains(o_custkey)        
+                                            }}
+                                            .map{case (key,value) => {
+                                                val o_custkey = value._2
+                                                val n_nationkey = broadcastcustomerMap.value.getOrElse(o_custkey, -1)                                                
+                                                n_nationkey
+                                            }}
+                                            .filter{n_nationkey => broadcastnationMap.value.contains(n_nationkey)}
+                                            .map(n_nationkey => (n_nationkey, 1))
+                                            .reduceByKey(_ + _)
+                                            .sortByKey()
+                                            .map{case (n_nationkey, count) => ((n_nationkey, broadcastnationMap.value.getOrElse(n_nationkey,"")), count)}
+                                            .collect
 
         queryResult.foreach{case ((n_nationkey, n_name), count) => {
             println("("+n_nationkey+","+n_name+","+count+")")
         }}
         
-        /*
+        
         if(isParquet){
             val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
             val ordersDF = sparkSession.read.parquet(args.input()+"/orders")
@@ -141,6 +160,6 @@ object Q4{
             val result = sparkSession.sql("select n_nationkey, n_name, count(*) from lineitem, orders, customer, nation where l_orderkey = o_orderkey and o_custkey = c_custkey and c_nationkey = n_nationkey and l_shipdate = '"+date+"' group by n_nationkey, n_name order by n_nationkey asc").show()
 
         }
-        */
+        
     }
 } 

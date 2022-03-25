@@ -36,7 +36,7 @@ object Q3{
         log.info("Is input processed as text file: " + args.text())
         log.info("Is input processed as parquet file: " + args.parquet())
 
-        val sparkSession = SparkSession.builder.appName("A6Q2").getOrCreate
+        val sparkSession = SparkSession.builder.appName("A6Q3").getOrCreate
         val date:String = args.date()
 
         val isParquet:Boolean = args.parquet()
