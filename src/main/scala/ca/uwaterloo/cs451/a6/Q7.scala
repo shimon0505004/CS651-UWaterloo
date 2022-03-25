@@ -146,7 +146,7 @@ object Q7{
              println("(" + c_name + "," + l_orderkey + "," + revenue + "," + o_orderdate + "," + o_shippriority + ")")
         }}
         
-        
+        /*
         if(isParquet){
             val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
             val ordersDF = sparkSession.read.parquet(args.input()+"/orders")
@@ -179,7 +179,7 @@ object Q7{
                                      .show(200, false)
 
         }
-        
+        */
         
         
     }
