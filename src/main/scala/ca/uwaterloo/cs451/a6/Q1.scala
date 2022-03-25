@@ -42,32 +42,26 @@ object Q1{
 
         val queryResult  = if(!isParquet){
             //Process as TXT file
-            val lineitemRDD = sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
-            lineitemRDD.filter(row => row.split('|').apply(l_shipdatePos).equals(date))
-                        .map(row => {
-                            val arr = row.split('|')
-                            val l_quantity = arr.apply(l_quantityPos).toLong
-                            l_quantity
-                        })
+            sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
+                        .filter(row => row.split('|').apply(l_shipdatePos).equals(date))
                         .count()
+            
         }else{
-            val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
-            lineitemRDD.filter(row => row.getString(l_shipdatePos).equals(date))
-                        .map(row => {
-                            val l_quantity = row.getDouble(l_quantityPos).toLong
-                            l_quantity
-                        })
+            sparkSession.read.parquet(args.input()+"/lineitem").rdd
+                        .filter(row => row.getString(l_shipdatePos).equals(date))
                         .count()
         }
 
         println(s"ANSWER=${queryResult}")
 
-        //For verifying results of Q3
+        /*
+        //For verifying results of Q1
         if(isParquet){
             val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
             lineitemDF.createOrReplaceTempView("lineitem")
             val result = sparkSession.sql("select count(*) from lineitem where l_shipdate = '" + date + "\'").show()
         }
+        */
 
     }
 } 

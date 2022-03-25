@@ -44,7 +44,7 @@ object Q2{
         val l_orderkeyPos = 0
         val l_shipdatePos = 10
 
-        val queryResult  = if(!isParquet){
+        val projection  = if(!isParquet){
             //Process as TXT file
             val lineitemRDD = sparkSession.sparkContext.textFile(args.input()+"/lineitem.tbl")
             val ordersRDD = sparkSession.sparkContext.textFile(args.input()+"/orders.tbl")
@@ -58,16 +58,7 @@ object Q2{
                 (row.apply(o_orderkeyPos).toInt, row.apply(o_clerkPos))
             })
 
-            lineItemProjection.cogroup(ordersProjection)
-                .filter(_._2._1.size > 0)
-                .filter(_._2._2.size > 0)
-                .map{case (o_orderkey,value) => {
-                    val o_clerk = value._2.toList.apply(0)
-                    (o_clerk, o_orderkey)
-                }}
-                .sortBy(_._2)
-                .take(limit)
-            
+            lineItemProjection.cogroup(ordersProjection)            
         }else{
             val lineitemRDD = sparkSession.read.parquet(args.input()+"/lineitem").rdd
             val ordersRDD = sparkSession.read.parquet(args.input()+"/orders").rdd
@@ -78,17 +69,44 @@ object Q2{
             val ordersProjection:RDD[(Int, String)] = ordersRDD.map(row => (row.getInt(o_orderkeyPos), row.getString(o_clerkPos)))
 
             lineItemProjection.cogroup(ordersProjection)
-                .filter(_._2._1.size > 0)
-                .filter(_._2._2.size > 0)
-                .map{case (o_orderkey,value) => {
-                    val o_clerk = value._2.toList.apply(0)
-                    (o_clerk, o_orderkey)
-                }}
-                .sortBy(_._2)
-                .take(limit)
+            //lineItemProjection.join(ordersProjection)                 
         }
 
+        
+        val queryResult = projection.filter(_._2._1.size > 0)
+                                    .filter(_._2._2.size > 0)
+                                    .flatMap{case (o_orderkey,value) => {                                        
+                                        value._2.map(o_clerk => (o_clerk, o_orderkey))
+                                    }}
+                                    .sortBy(_._2)
+                                    .take(limit)
+        
+
+        /*
+        //Join gives correct result, cogroup has issues
+         val queryResult = projection.map{case (o_orderkey,value) => {
+                                        val o_clerk = value._2
+                                        (o_clerk, o_orderkey)
+                                    }}
+                                    .sortBy(_._2)
+                                    .take(limit)
+        */
         queryResult.foreach(row => println("("+row._1+","+row._2+")"))
+
+        /*
+        //For verifying results of Q2
+        if(isParquet){
+            val lineitemDF = sparkSession.read.parquet(args.input()+"/lineitem")
+            val ordersDF = sparkSession.read.parquet(args.input()+"/orders")
+            lineitemDF.createOrReplaceTempView("lineitem")
+            ordersDF.createOrReplaceTempView("orders")
+            val result = sparkSession.sql("""select o_clerk, o_orderkey from lineitem, orders
+                                                where
+                                                    l_orderkey = o_orderkey and
+                                                    l_shipdate = '""" + date + """' 
+                                                order by o_orderkey asc limit 20""").show()
+        }
+        */
 
     }
 } 
