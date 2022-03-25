@@ -134,7 +134,7 @@ object Q5{
         val broadcastnationMap = sparkSession.sparkContext.broadcast(nationMap)
 
 
-
+        /*
         val queryResult = lineItemProjection.cogroup(ordersProjection)
                                             .filter{case (orderKey, (shipmonths, custkeys)) => ((shipmonths.size > 0) 
                                                                                                 && (custkeys.size > 0) 
@@ -143,6 +143,21 @@ object Q5{
                                             .map{case (orderKey, (shipmonths, custkeys))  => {
                                                 val o_custkey = custkeys.toList.apply(0)
                                                 val o_shipmonth = shipmonths.toList.apply(0)
+                                                val n_nationkey = broadcastcustomerMap.value.getOrElse(o_custkey, -1)                                                
+                                                (n_nationkey, o_shipmonth)
+                                            }}
+                                            .filter{case(n_nationkey, o_shipmonth) => broadcastnationMap.value.contains(n_nationkey)}
+                                            .map{case(n_nationkey, o_shipmonth) => (((n_nationkey, broadcastnationMap.value.getOrElse(n_nationkey,"")), o_shipmonth), 1)}
+                                            .reduceByKey(_ + _)
+                                            .sortBy{case(((n_nationkey, n_name), o_shipmonth), o_shipmentCount) => (n_nationkey, n_name, o_shipmonth)}
+                                            .map{case(((n_nationkey, n_name), o_shipmonth), o_shipmentCount) => ((n_nationkey, n_name), (o_shipmonth, o_shipmentCount))}                                            
+                                            .collect
+        */
+
+        //No cogroup restriction, fixing issues with cogroup merging.
+        val queryResult = lineItemProjection.join(ordersProjection)
+                                            .filter{case (orderKey, (shipmonth, custkey)) => broadcastcustomerMap.value.contains(custkeys))}
+                                            .map{case (orderKey, (o_shipmonth, o_custkey))  => {
                                                 val n_nationkey = broadcastcustomerMap.value.getOrElse(o_custkey, -1)                                                
                                                 (n_nationkey, o_shipmonth)
                                             }}
