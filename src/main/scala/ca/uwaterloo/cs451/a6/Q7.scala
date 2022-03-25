@@ -122,6 +122,7 @@ object Q7{
         val customerMap = customerProjection.collectAsMap()
         val broadcastcustomerMap = sparkSession.sparkContext.broadcast(customerMap)
 
+        /*
         val queryResult = lineItemProjection.cogroup(ordersProjection)
                                             .filter{case (orderkey,(lineitemValues, ordersValues)) => {                                                
                                                 (lineitemValues.size) > 0 && (ordersValues.size > 0)  
@@ -142,7 +143,24 @@ object Q7{
                                             .sortBy{case((c_name, l_orderkey, o_orderdate, o_shippriority), revenue) => -revenue}
                                             .collect
                                             .take(limit)
-                                            
+        */
+        val queryResult = lineItemProjection.join(ordersProjection)
+                                            .filter{case (orderkey,(lineitemValues, ordersValues)) => {                                                
+                                                val o_custkey = ordersValues._1
+                                                broadcastcustomerMap.value.contains(o_custkey)
+                                            }}
+                                            .map{case (l_orderkey,(lineitemValue, ordersValue)) => {     
+                                                val o_custkey = ordersValue._1                                           
+                                                val o_orderdate = ordersValue._2
+                                                val o_shippriority = ordersValue._3
+                                                val c_name = broadcastcustomerMap.value.getOrElse(o_custkey, "")  
+                                                val l_revenue = lineitemValue
+                                                ((c_name, l_orderkey, o_orderdate, o_shippriority), l_revenue)
+                                            }}
+                                            .reduceByKey(_ + _)
+                                            .sortBy{case((c_name, l_orderkey, o_orderdate, o_shippriority), revenue) => -revenue}
+                                            .collect
+                                            .take(limit)                           
 
         queryResult.foreach{case((c_name, l_orderkey, o_orderdate, o_shippriority), revenue) => {
              println("(" + c_name + "," + l_orderkey + "," + revenue + "," + o_orderdate + "," + o_shippriority + ")")
