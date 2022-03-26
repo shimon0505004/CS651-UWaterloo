@@ -27,6 +27,8 @@ check_assignment1_public_linux.py
 /cs451-lintool-a2-shakespeare-pmi-stripes/
 /check_assignment2_public_datasci.py
 /check_assignment2_public_linux.py
+/check_assignment6_public_linux.py
+/check_assignment6_public_datasci.py
 /cs451-bigdatateach-a2-shakespeare-bigrams-pairs/
 /cs451-bigdatateach-a2-shakespeare-bigrams-stripes/
 /cs451-bigdatateach-a2-shakespeare-pmi-pairs/
@@ -64,3 +66,17 @@ check_assignment1_public_linux.py
 /TPC-H-0.1-TXT/**
 /*.*TPC-H-0.1-PARQUET*
 /*.*TPC-H-0.1-TXT*
+/q1t.out
+/q1p.out
+/q2t.out
+/q2p.out
+/q3t.out
+/q3p.out
+/q4t.out
+/q4p.out
+/q5t.out
+/q5p.out
+/q6t.out
+/q6p.out
+/q7t.out
+/q7p.out
