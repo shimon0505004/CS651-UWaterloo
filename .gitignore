@@ -82,3 +82,5 @@ check_assignment1_public_linux.py
 /q7p.out
 /taxi-data
 /taxi-data/*
+/checkpoint/
+/output*
