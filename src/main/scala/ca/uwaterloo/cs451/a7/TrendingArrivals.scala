@@ -75,7 +75,6 @@ object TrendingArrivals {
     val goldman: List[(Double, Double)] = List((-74.0141012, 40.7152191), (-74.013777, 40.7152275), (-74.0141027, 40.7138745), (-74.0144185, 40.7140753))
     val citygroup: List[(Double, Double)] = List((-74.011869, 40.7217236), (-74.009867, 40.721493), (-74.010140,40.720053), (-74.012083, 40.720267))
     
-
     val wc = stream.map(_.split(","))
       .map(tuple => {
         if (tuple(0) == "green") 
@@ -94,7 +93,7 @@ object TrendingArrivals {
         }
       })
       .reduceByKeyAndWindow(
-        (x: Int, y: Int) => x + y, (x: Int, y: Int) => x - y, Minutes(60), Minutes(60))
+        (x: Int, y: Int) => x + y, (x: Int, y: Int) => x - y, Minutes(10), Minutes(10))
       .persist()
 
     wc.saveAsTextFiles(args.output())
