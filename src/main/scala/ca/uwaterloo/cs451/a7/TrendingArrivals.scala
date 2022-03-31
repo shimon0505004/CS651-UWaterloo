@@ -51,23 +51,26 @@ object TrendingArrivals {
     (givenPoint._1 >= xLeft) && (givenPoint._1 <= xRight) && (givenPoint._2 <= yTop) && (givenPoint._2 >= yBottom)     
   }
 
-  def mappingFunction(key: String, value: Option[Int], state: State[Int]): Option[Any] = {
+  def mappingFunction(time: Time, key: String, value: Option[Int], state: State[Int]): Option[(String, (Int, Long, Int))] = {
+    //var oldV = 0
+    //var newV = 0
     (value, state.getOption()) match {
       case (Some(newValue), None) => {
         // the 1st visit
         state.update(newValue)
-        None
+        Some(key, (newValue, time.milliseconds, 0))
       }
       case (Some(newValue), Some(oldValue)) => {
         // next visit
         state.update(newValue)
-        Some(key, (newValue, oldValue))
+        Some(key, (newValue, time.milliseconds, oldValue))
       }
       case (None, Some(oldValue)) => {
-        Some(key, (0, oldValue))        
+        Some(key, (0, time.milliseconds, oldValue))
       }
-      case _ => None
+      case _ => Some(key, (0, time.milliseconds, 0))
     }
+    //Some(key, (newV, time.milliseconds, oldV))
   }
 
   def main(argv: Array[String]): Unit = {
@@ -97,8 +100,7 @@ object TrendingArrivals {
     
     val wc = stream.map(_.split(","))
       .map(tuple => {
-        if (tuple(0) == "green") 
-        {
+        if (tuple(0) == "green"){
           (tuple(8).toDouble, tuple(9).toDouble)
         } else {
           (tuple(10).toDouble, tuple(11).toDouble)
@@ -108,20 +110,25 @@ object TrendingArrivals {
       .map(point => {
         if(isBoundedByBox(goldman, point)){
           ("goldman", 1)
-        }else{
+        }else if(isBoundedByBox(citygroup, point)){
           ("citigroup", 1)
+        }else{
+          ("other", 1)
         }
       })
       .reduceByKeyAndWindow(
         (x: Int, y: Int) => x + y, (x: Int, y: Int) => x - y, Minutes(10), Minutes(10))
-      .mapWithState(mappingFunction _)
+      .mapWithState(StateSpec.function(mappingFunction _))            
       .persist()
 
-    wc.saveAsTextFiles(args.output())
-
-    wc.foreachRDD(rdd => {
+    val outputVal = args.output()
+    wc.foreachRDD{(rdd, time) => {
+      val timeMiliStr = f"${time.milliseconds}%08d"
+      rdd.saveAsTextFile(s"${outputVal}/part-${timeMiliStr}")
       numCompletedRDDs.add(1L)
-    })
+    }}
+
+
     ssc.checkpoint(args.checkpoint())
     ssc.start()
 

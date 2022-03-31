@@ -89,8 +89,10 @@ object RegionEventCount {
       .map(point => {
         if(isBoundedByBox(goldman, point)){
           ("goldman", 1)
-        }else{
+        }else if(isBoundedByBox(citygroup, point)){
           ("citigroup", 1)
+        }else{
+          ("other", 1)
         }
       })
       .reduceByKeyAndWindow(
