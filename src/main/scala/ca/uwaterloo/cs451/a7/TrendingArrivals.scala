@@ -23,7 +23,8 @@ import org.apache.log4j._
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.streaming.{ManualClockWrapper, Minutes, StreamingContext}
+//import org.apache.spark.streaming.{ManualClockWrapper, Minutes, StreamingContext}
+import org.apache.spark.streaming._
 import org.apache.spark.streaming.scheduler.{StreamingListener, StreamingListenerBatchCompleted}
 import org.apache.spark.util.LongAccumulator
 import org.rogach.scallop._
@@ -48,6 +49,25 @@ object TrendingArrivals {
     val yBottom = boundingBox.map{case (x,y)=>y}.min
 
     (givenPoint._1 >= xLeft) && (givenPoint._1 <= xRight) && (givenPoint._2 <= yTop) && (givenPoint._2 >= yBottom)     
+  }
+
+  def mappingFunction(key: String, value: Option[Int], state: State[Int]): Option[Any] = {
+    (value, state.getOption()) match {
+      case (Some(newValue), None) => {
+        // the 1st visit
+        state.update(newValue)
+        None
+      }
+      case (Some(newValue), Some(oldValue)) => {
+        // next visit
+        state.update(newValue)
+        Some(key, (newValue, oldValue))
+      }
+      case (None, Some(oldValue)) => {
+        Some(key, (0, oldValue))        
+      }
+      case _ => None
+    }
   }
 
   def main(argv: Array[String]): Unit = {
@@ -94,6 +114,7 @@ object TrendingArrivals {
       })
       .reduceByKeyAndWindow(
         (x: Int, y: Int) => x + y, (x: Int, y: Int) => x - y, Minutes(10), Minutes(10))
+      .mapWithState(mappingFunction _)
       .persist()
 
     wc.saveAsTextFiles(args.output())
