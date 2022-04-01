@@ -51,26 +51,30 @@ object TrendingArrivals {
     (givenPoint._1 >= xLeft) && (givenPoint._1 <= xRight) && (givenPoint._2 <= yTop) && (givenPoint._2 >= yBottom)     
   }
 
-  def mappingFunction(time: Time, key: String, value: Option[Int], state: State[Int]): Option[(String, (Int, Long, Int))] = {
-    //var oldV = 0
-    //var newV = 0
+  def mappingFunction(key: String, value: Option[Int], state: State[Int]) = {
+    var prev = 0
+    var cur = 0
     (value, state.getOption()) match {
       case (Some(newValue), None) => {
         // the 1st visit
         state.update(newValue)
-        Some(key, (newValue, time.milliseconds, 0))
+        //Some(key, (newValue, time.milliseconds, 0))
+        cur = newValue
       }
       case (Some(newValue), Some(oldValue)) => {
         // next visit
+        prev = oldValue
+        cur = newValue
         state.update(newValue)
-        Some(key, (newValue, time.milliseconds, oldValue))
+        //Some(key, (newValue, time.milliseconds, oldValue))
       }
       case (None, Some(oldValue)) => {
-        Some(key, (0, time.milliseconds, oldValue))
+        prev = oldValue
+        //Some(key, (0, time.milliseconds, oldValue))
       }
-      case _ => Some(key, (0, time.milliseconds, 0))
+      case _ => //Some(key, (0, time.milliseconds, 0))
     }
-    //Some(key, (newV, time.milliseconds, oldV))
+    (key, (cur, prev))
   }
 
   def main(argv: Array[String]): Unit = {
@@ -118,15 +122,36 @@ object TrendingArrivals {
       })
       .reduceByKeyAndWindow(
         (x: Int, y: Int) => x + y, (x: Int, y: Int) => x - y, Minutes(10), Minutes(10))
-      .mapWithState(StateSpec.function(mappingFunction _))            
+      .mapWithState(StateSpec.function(mappingFunction _))
+      .transform((rdd, time) =>{
+        val transformedRdd = rdd.map{case(key, (curVal, prevVal)) => (key, (curVal, time.milliseconds, prevVal))}
+        transformedRdd
+      })            
       .persist()
 
+    wc.foreachRDD{(rdd, time) => {
+      rdd.foreach{case(key, (curVal, timestamp, prevVal)) => {
+        if(curVal >= 10 && curVal >= (2*prevVal)){
+          if(key.equals("goldman")){
+            print(s"Number of arrivals to Goldman Sachs has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
+          }else if(key.equals("citigroup")){
+            print(s"Number of arrivals to Citygroup has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
+          }else{
+            print(s"Number of arrivals to Others has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
+          }
+        }
+      }}
+    }}  
+
     val outputVal = args.output()
+
     wc.foreachRDD{(rdd, time) => {
       val timeMiliStr = f"${time.milliseconds}%08d"
       rdd.saveAsTextFile(s"${outputVal}/part-${timeMiliStr}")
       numCompletedRDDs.add(1L)
     }}
+
+
 
 
     ssc.checkpoint(args.checkpoint())
