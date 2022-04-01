@@ -84,3 +84,7 @@ check_assignment1_public_linux.py
 /taxi-data/*
 /checkpoint/
 /output*
+/check_assignment7_public.py
+/cs451-lintool-checkpoint-q1/
+/cs451-lintool-checkpoint-q2/
+/cs451-lintool-checkpoint-q3/
