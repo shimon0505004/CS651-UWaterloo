@@ -92,7 +92,7 @@ object TrendingArrivals {
 
     val batchDuration = Minutes(1)
     val ssc = new StreamingContext(spark.sparkContext, batchDuration)
-    val batchListener = new StreamingContextBatchCompletionListener(ssc, 24)
+    val batchListener = new StreamingContextBatchCompletionListener(ssc, 144)
     ssc.addStreamingListener(batchListener)
 
     val rdds = buildMockStream(ssc.sparkContext, args.input())
@@ -133,11 +133,11 @@ object TrendingArrivals {
       rdd.foreach{case(key, (curVal, timestamp, prevVal)) => {
         if(curVal >= 10 && curVal >= (2*prevVal)){
           if(key.equals("goldman")){
-            print(s"Number of arrivals to Goldman Sachs has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
+            println(s"Number of arrivals to Goldman Sachs has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
           }else if(key.equals("citigroup")){
-            print(s"Number of arrivals to Citygroup has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
+            println(s"Number of arrivals to Citygroup has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
           }else{
-            print(s"Number of arrivals to Others has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
+            println(s"Number of arrivals to Others has doubled from ${prevVal} to ${curVal} at ${timestamp}!")
           }
         }
       }}
